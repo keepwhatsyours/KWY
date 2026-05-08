@@ -1048,19 +1048,17 @@ function renderActivityChart(md) {
   });
 }
 
-/* compute per-ticker MCAP change for TODAY ONLY:
-   first flag-today MCAP vs LIVE MCAP from Dexscreener.
-   Coins not flagged today are excluded. */
+/* compute per-ticker MCAP change for ROLLING LAST 24 HOURS:
+   first flag in the last 24h vs LIVE MCAP from Dexscreener.
+   Coins with no flag in the last 24h are excluded. */
 function computePerformance(md) {
-  // start of today in local time, as ISO so string-compare works against ts
-  const t0 = new Date();
-  t0.setHours(0, 0, 0, 0);
-  const todayStartIso = t0.toISOString();
+  // 24 hours ago, as ISO, so string-compare works against ts
+  const cutoffIso = new Date(Date.now() - 24*60*60*1000).toISOString();
 
   const out = [];
   for (const [symbol, flags] of md.flagsBySymbol) {
-    // only flags from today
-    const todayFlags = flags.filter(f => f.ts >= todayStartIso);
+    // only flags within the last 24 hours
+    const todayFlags = flags.filter(f => f.ts >= cutoffIso);
     if (!todayFlags.length) continue;
 
     const sortedAsc = [...todayFlags].sort((a,b) => a.ts < b.ts ? -1 : 1);
@@ -1106,8 +1104,8 @@ function renderWinnersLosers(md) {
   const ctx = document.getElementById("wl-chart");
 
   if (!perf.length) {
-    meta.textContent = "// no flags today yet…";
-    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins flagged today yet — once Bubba Bot posts today's first scan, today's winners and losers appear here.</div>`;
+    meta.textContent = "// no flags in last 24h…";
+    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins flagged in the last 24 hours — once Bubba Bot posts a scan, winners and losers appear here.</div>`;
     if (wlChart) { wlChart.destroy(); wlChart = null; }
     if (ctx?.getContext) ctx.getContext("2d").clearRect(0, 0, ctx.width, ctx.height);
     return;
@@ -1118,7 +1116,7 @@ function renderWinnersLosers(md) {
   const top   = perf[0];
   const worst = perf[perf.length - 1];
 
-  meta.textContent = `${perf.length} coins flagged today · first flag → live`;
+  meta.textContent = `${perf.length} coins · last 24h · first flag → live`;
   summary.innerHTML = `
     <span class="pill">tracked: <b>${perf.length}</b></span>
     <span class="pill">winners: <b>${winners.length}</b></span>
