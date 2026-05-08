@@ -61,6 +61,36 @@
   .wrap{max-width:1200px;margin:0 auto;padding:24px 28px 80px}
   .row{display:flex;gap:16px;flex-wrap:wrap}
 
+  /* top CTA */
+  .cta-top{
+    display:block;text-align:center;
+    background:rgba(0,255,65,.08);
+    border:1px solid var(--green);
+    color:var(--green);
+    padding:11px 14px;
+    font-weight:700;letter-spacing:.18em;
+    text-transform:uppercase;font-size:13px;
+    text-decoration:none;
+    text-shadow:0 0 8px rgba(0,255,65,.55);
+    box-shadow:0 0 18px rgba(0,255,65,.18), inset 0 0 18px rgba(0,255,65,.05);
+    border-radius:3px;
+    margin-bottom:12px;
+    transition:background .15s, color .15s, box-shadow .15s, transform .15s;
+    animation:cta-pulse 2.4s ease-in-out infinite;
+  }
+  .cta-top:hover{
+    background:var(--green);color:#000;
+    text-shadow:none;
+    box-shadow:0 0 28px rgba(0,255,65,.55), inset 0 0 0 rgba(0,0,0,0);
+    transform:translateY(-1px);
+    animation:none;
+  }
+  .cta-top .arrow{margin-left:6px;display:inline-block}
+  @keyframes cta-pulse{
+    0%,100%{box-shadow:0 0 18px rgba(0,255,65,.18), inset 0 0 18px rgba(0,255,65,.05)}
+    50%{box-shadow:0 0 32px rgba(0,255,65,.35), inset 0 0 22px rgba(0,255,65,.1)}
+  }
+
   /* topbar */
   .topbar{
     display:flex;justify-content:space-between;align-items:center;
@@ -373,6 +403,9 @@
 </div>
 
 <div class="wrap" id="app" style="opacity:0">
+  <a class="cta-top" href="https://gmgn.ai/r/wahoowa" target="_blank" rel="noopener">
+    ▶ START TRADING TODAY <span class="arrow">↗</span>
+  </a>
   <div class="topbar">
     <div><span class="led"></span> KEEPWHATSYOURS.AI · v0.1.0 · NODE-7</div>
     <div class="right">
