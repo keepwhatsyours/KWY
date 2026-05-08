@@ -1,0 +1,46 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: validate picks.json
+        run: node scripts/validate-picks.mjs
+
+      - name: bot.js syntax
+        run: node --check bot/bot.js
+
+      - name: index.html inline-script syntax
+        run: |
+          node -e '
+            const fs = require("fs");
+            const html = fs.readFileSync("index.html","utf8");
+            const re = /<script(?![^>]*type="application\/json")(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+            const scripts = [...html.matchAll(re)].map(m => m[1]);
+            if (!scripts.length) { console.error("no inline scripts found"); process.exit(1); }
+            fs.writeFileSync("/tmp/inline.js", scripts.join("\n;\n"));
+          '
+          node --check /tmp/inline.js
+
+      - name: validate embedded picks fallback
+        run: |
+          node -e '
+            const fs = require("fs");
+            const html = fs.readFileSync("index.html","utf8");
+            const m = html.match(/<script id="picks-fallback" type="application\/json">([\s\S]*?)<\/script>/);
+            if (!m) { console.error("embedded picks-fallback block missing"); process.exit(1); }
+            JSON.parse(m[1].trim());
+            console.log("embedded fallback parses OK");
+          '

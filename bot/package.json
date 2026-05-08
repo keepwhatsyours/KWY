@@ -1,0 +1,21 @@
+{
+  "name": "kwy-discord-feed",
+  "version": "0.1.0",
+  "description": "Mirrors a Discord channel into a JSON feed for KEEPWHATSYOURS.AI",
+  "author": "keepwhatsyours@pm.me",
+  "type": "module",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1"
+  }
+}

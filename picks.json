@@ -1,0 +1,168 @@
+{
+  "_comment": "KEEPWHATSYOURS.AI — daily meme coin picks. Replace these sample entries with your Open Claw output. Each pick uses CoinGecko IDs so the site can fetch live prices.",
+  "_schema": {
+    "date": "YYYY-MM-DD the pick was made",
+    "symbol": "ticker shown in UI",
+    "name": "display name",
+    "coingecko_id": "id from coingecko.com/api (e.g. 'dogecoin', 'pepe')",
+    "entry_price": "USD price at time of pick",
+    "size_usd": "notional position size in USD (used for cumulative P&L)",
+    "thesis": "1–2 line reason for the pick",
+    "status": "'open' (uses live price) or 'closed' (uses exit_price)",
+    "exit_price": "only when status='closed'",
+    "exit_date": "only when status='closed'"
+  },
+  "starting_capital_usd": 10000,
+  "picks": [
+    {
+      "date": "2026-04-08",
+      "symbol": "PEPE",
+      "name": "Pepe",
+      "coingecko_id": "pepe",
+      "entry_price": 0.00000812,
+      "size_usd": 1000,
+      "thesis": "Frog-szn rotation; volume bid past resistance on 4h.",
+      "status": "closed",
+      "exit_price": 0.00000961,
+      "exit_date": "2026-04-11"
+    },
+    {
+      "date": "2026-04-10",
+      "symbol": "WIF",
+      "name": "dogwifhat",
+      "coingecko_id": "dogwifcoin",
+      "entry_price": 1.84,
+      "size_usd": 1000,
+      "thesis": "SOL meme leader, hat narrative re-igniting.",
+      "status": "closed",
+      "exit_price": 1.62,
+      "exit_date": "2026-04-13"
+    },
+    {
+      "date": "2026-04-12",
+      "symbol": "BONK",
+      "name": "Bonk",
+      "coingecko_id": "bonk",
+      "entry_price": 0.0000241,
+      "size_usd": 1000,
+      "thesis": "Burn announcement + SOL beta; tight risk.",
+      "status": "closed",
+      "exit_price": 0.0000284,
+      "exit_date": "2026-04-15"
+    },
+    {
+      "date": "2026-04-15",
+      "symbol": "POPCAT",
+      "name": "Popcat",
+      "coingecko_id": "popcat",
+      "entry_price": 0.71,
+      "size_usd": 1000,
+      "thesis": "Reclaim of weekly pivot; CT mindshare ticking up.",
+      "status": "closed",
+      "exit_price": 0.92,
+      "exit_date": "2026-04-19"
+    },
+    {
+      "date": "2026-04-17",
+      "symbol": "BOME",
+      "name": "Book of Meme",
+      "coingecko_id": "book-of-meme",
+      "entry_price": 0.0098,
+      "size_usd": 1000,
+      "thesis": "Liquidity returning post-cooldown; OI low.",
+      "status": "closed",
+      "exit_price": 0.0089,
+      "exit_date": "2026-04-20"
+    },
+    {
+      "date": "2026-04-19",
+      "symbol": "MOG",
+      "name": "Mog Coin",
+      "coingecko_id": "mog-coin",
+      "entry_price": 0.00000142,
+      "size_usd": 1000,
+      "thesis": "Base meme rotation; chart cup-and-handle.",
+      "status": "closed",
+      "exit_price": 0.00000178,
+      "exit_date": "2026-04-23"
+    },
+    {
+      "date": "2026-04-22",
+      "symbol": "BRETT",
+      "name": "Brett",
+      "coingecko_id": "based-brett",
+      "entry_price": 0.082,
+      "size_usd": 1000,
+      "thesis": "Coinbase listing chatter; Base ecosystem pump.",
+      "status": "closed",
+      "exit_price": 0.094,
+      "exit_date": "2026-04-26"
+    },
+    {
+      "date": "2026-04-25",
+      "symbol": "FLOKI",
+      "name": "Floki",
+      "coingecko_id": "floki",
+      "entry_price": 0.149,
+      "size_usd": 1000,
+      "thesis": "Valhalla update news; healthy retrace bought.",
+      "status": "closed",
+      "exit_price": 0.171,
+      "exit_date": "2026-04-29"
+    },
+    {
+      "date": "2026-04-28",
+      "symbol": "SHIB",
+      "name": "Shiba Inu",
+      "coingecko_id": "shiba-inu",
+      "entry_price": 0.0000182,
+      "size_usd": 1000,
+      "thesis": "Burn rate spike + Shibarium TVL ATH.",
+      "status": "closed",
+      "exit_price": 0.0000174,
+      "exit_date": "2026-05-01"
+    },
+    {
+      "date": "2026-05-01",
+      "symbol": "DOGE",
+      "name": "Dogecoin",
+      "coingecko_id": "dogecoin",
+      "entry_price": 0.158,
+      "size_usd": 1000,
+      "thesis": "Macro alt rotation; DOGE leads memes when BTC chops.",
+      "status": "closed",
+      "exit_price": 0.181,
+      "exit_date": "2026-05-04"
+    },
+    {
+      "date": "2026-05-04",
+      "symbol": "PEPE",
+      "name": "Pepe",
+      "coingecko_id": "pepe",
+      "entry_price": 0.00000934,
+      "size_usd": 1000,
+      "thesis": "Re-entry after consolidation flag; vol expanding.",
+      "status": "open"
+    },
+    {
+      "date": "2026-05-06",
+      "symbol": "WIF",
+      "name": "dogwifhat",
+      "coingecko_id": "dogwifcoin",
+      "entry_price": 1.71,
+      "size_usd": 1000,
+      "thesis": "Bounce off weekly demand; SOL strength resuming.",
+      "status": "open"
+    },
+    {
+      "date": "2026-05-07",
+      "symbol": "BONK",
+      "name": "Bonk",
+      "coingecko_id": "bonk",
+      "entry_price": 0.0000262,
+      "size_usd": 1000,
+      "thesis": "Today's pick — tight stop below 0.0000245, target 0.0000310.",
+      "status": "open"
+    }
+  ]
+}

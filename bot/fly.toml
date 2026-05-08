@@ -1,0 +1,27 @@
+# Fly.io app config for the KWY Discord feed bot.
+# Rename `app` to whatever you want — must be globally unique on Fly.
+# After your first deploy you can regenerate this with:
+#   fly launch --copy-config --no-deploy
+# from the bot/ directory.
+
+app = "kwy-feed"
+primary_region = "iad"   # change to your nearest region: lhr, ord, sjc, syd, ...
+
+[build]
+  # Empty section forces Fly to use the Dockerfile in this directory.
+
+[env]
+  PORT = "3030"
+
+[http_service]
+  internal_port = 3030
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"

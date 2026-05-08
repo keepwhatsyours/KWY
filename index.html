@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>KEEPWHATSYOURS.AI // meme coin ops</title>
+<meta name="description" content="Daily AI-generated meme coin picks with live track record." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0e0a'/%3E%3Ctext x='50%25' y='54%25' font-family='monospace' font-size='44' fill='%2300ff41' text-anchor='middle' font-weight='900'%3E$%3C/text%3E%3C/svg%3E" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#070a07;
+    --bg-2:#0d130d;
+    --green:#00ff41;
+    --green-dim:#1f9f3a;
+    --green-deep:#0a5b1e;
+    --amber:#ffb000;
+    --red:#ff3b3b;
+    --grid:rgba(0,255,65,.08);
+    --mono: "JetBrains Mono","Fira Code","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--green);font-family:var(--mono);font-size:14px;line-height:1.5;min-height:100%}
+  body{
+    background:
+      radial-gradient(ellipse at top, rgba(0,255,65,.06), transparent 60%),
+      radial-gradient(ellipse at bottom, rgba(0,255,65,.04), transparent 60%),
+      var(--bg);
+    overflow-x:hidden;
+  }
+  /* CRT scanlines */
+  body::before{
+    content:"";
+    position:fixed;inset:0;
+    pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.18) 3px, rgba(0,0,0,0) 4px);
+    z-index:9999;
+    mix-blend-mode:multiply;
+  }
+  /* CRT vignette + flicker */
+  body::after{
+    content:"";
+    position:fixed;inset:0;
+    pointer-events:none;
+    box-shadow:inset 0 0 220px rgba(0,0,0,.85);
+    z-index:9998;
+    animation:flicker 4s infinite;
+  }
+  @keyframes flicker{
+    0%,100%{opacity:1}
+    47%{opacity:.97}
+    48%{opacity:.92}
+    49%{opacity:.99}
+    72%{opacity:.95}
+  }
+
+  ::selection{background:var(--green);color:#000}
+  a{color:var(--green);text-decoration:none;border-bottom:1px dashed var(--green-dim)}
+  a:hover{background:var(--green);color:#000}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:24px 28px 80px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+
+  /* topbar */
+  .topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    border-bottom:1px solid var(--green-deep);
+    padding:8px 0 10px;margin-bottom:14px;
+    font-size:12px;color:var(--green-dim);
+    text-transform:uppercase;letter-spacing:.12em;
+  }
+  .topbar .right{display:flex;gap:18px;align-items:center}
+  .led{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);margin-right:6px;vertical-align:middle;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* boot screen */
+  #boot{
+    position:fixed;inset:0;background:var(--bg);z-index:10000;
+    padding:6vh 6vw;font-size:14px;color:var(--green);
+    overflow:hidden;
+  }
+  #boot .line{white-space:pre;text-shadow:0 0 8px rgba(0,255,65,.55)}
+  #boot .ok{color:var(--green)}
+  #boot .warn{color:var(--amber)}
+  #boot.fade{opacity:0;transition:opacity .8s ease;pointer-events:none}
+  .cursor{display:inline-block;width:.6ch;background:var(--green);animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{background:transparent}}
+
+  /* hero ASCII */
+  .hero{
+    text-align:center;margin:18px 0 10px;
+    text-shadow:0 0 14px rgba(0,255,65,.55);
+  }
+  .hero pre{
+    display:inline-block;margin:0;
+    font-size:clamp(6px,1.05vw,12px);line-height:1.05;
+    color:var(--green);
+  }
+  .tagline{
+    text-align:center;color:var(--green-dim);font-size:12px;
+    margin:4px 0 22px;letter-spacing:.18em;text-transform:uppercase;
+  }
+  .tagline b{color:var(--green)}
+
+  /* panels */
+  .panel{
+    background:linear-gradient(180deg,var(--bg-2),var(--bg));
+    border:1px solid var(--green-deep);
+    border-radius:4px;
+    padding:14px 16px;
+    margin:12px 0;
+    box-shadow:inset 0 0 30px rgba(0,255,65,.04), 0 0 0 1px rgba(0,255,65,.02);
+    position:relative;
+  }
+  .panel h2{
+    margin:0 0 10px;font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--green);font-weight:600;
+    display:flex;align-items:center;gap:10px;
+  }
+  .panel h2::before{content:"▌";color:var(--green);text-shadow:0 0 6px var(--green)}
+  .panel h2 .meta{margin-left:auto;color:var(--green-dim);font-weight:400;font-size:11px;letter-spacing:.1em}
+
+  /* stat cards */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .stat{
+    border:1px dashed var(--green-deep);
+    padding:10px 12px;border-radius:3px;background:rgba(0,255,65,.02);
+  }
+  .stat .k{font-size:10px;color:var(--green-dim);text-transform:uppercase;letter-spacing:.18em}
+  .stat .v{font-size:22px;color:var(--green);margin-top:4px;text-shadow:0 0 8px rgba(0,255,65,.4)}
+  .stat .v.red{color:var(--red);text-shadow:0 0 8px rgba(255,59,59,.5)}
+  .stat .v.amb{color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.5)}
+
+  /* picks list */
+  .picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+  .pick{
+    border:1px solid var(--green-deep);
+    padding:12px;border-radius:3px;background:rgba(0,255,65,.02);
+    position:relative;
+  }
+  .pick::after{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--green);box-shadow:0 0 6px var(--green);
+  }
+  .pick .row1{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .pick .sym{font-size:18px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.4);letter-spacing:.05em}
+  .pick .name{color:var(--green-dim);font-size:11px;text-transform:uppercase;letter-spacing:.1em}
+  .pick .pnl{font-size:18px}
+  .pick .pnl.pos{color:var(--green)}
+  .pick .pnl.neg{color:var(--red)}
+  .pick .thesis{margin-top:8px;color:#9ad99a;font-size:12.5px;line-height:1.45}
+  .pick .meta{margin-top:6px;color:var(--green-dim);font-size:11px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 10px;text-align:left;border-bottom:1px dashed rgba(0,255,65,.12)}
+  th{color:var(--green-dim);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.16em}
+  tbody tr:hover{background:rgba(0,255,65,.05)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pos{color:var(--green)}
+  .neg{color:var(--red)}
+  .tag{display:inline-block;padding:1px 6px;border:1px solid var(--green-deep);border-radius:2px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--green-dim)}
+  .tag.open{color:var(--amber);border-color:rgba(255,176,0,.45)}
+  .tag.closed{color:var(--green);border-color:var(--green-deep)}
+
+  /* chart */
+  .chart-wrap{position:relative;height:300px}
+
+  /* intel feed */
+  .feed{max-height:420px;overflow-y:auto;padding-right:6px;font-size:12.5px}
+  .feed::-webkit-scrollbar{width:6px}
+  .feed::-webkit-scrollbar-track{background:transparent}
+  .feed::-webkit-scrollbar-thumb{background:var(--green-deep);border-radius:3px}
+  .feed-msg{
+    padding:8px 10px;border-left:2px solid var(--green-deep);
+    margin-bottom:8px;background:rgba(0,255,65,.025);
+    transition:border-color .25s, background .25s;
+  }
+  .feed-msg.fresh{border-left-color:var(--green);background:rgba(0,255,65,.07);box-shadow:0 0 12px rgba(0,255,65,.18)}
+  .feed-msg .head{display:flex;gap:8px;align-items:center;margin-bottom:3px;font-size:11px;color:var(--green-dim)}
+  .feed-msg .head .ts{color:var(--green-dim)}
+  .feed-msg .head .who{color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.35)}
+  .feed-msg .head .who.bot::after{content:" [BOT]";color:var(--amber);font-size:9px;letter-spacing:.1em}
+  .feed-msg .body{color:#cdeacd;white-space:pre-wrap;word-break:break-word}
+  .feed-msg .body a{color:var(--green);text-decoration:underline;border-bottom:none}
+  .feed-msg .att{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .feed-msg .att img{max-height:120px;max-width:100%;border:1px solid var(--green-deep);border-radius:2px;display:block}
+  .feed-msg .att .file{padding:3px 8px;border:1px dashed var(--green-deep);border-radius:2px;font-size:11px;color:var(--green-dim)}
+  .feed-msg .embed{margin-top:6px;padding:6px 10px;border-left:2px solid var(--green-deep);background:rgba(0,255,65,.02)}
+  .feed-msg .embed .et{color:var(--green);font-size:12px;margin-bottom:2px}
+  .feed-msg .embed .ed{color:#9ad99a;font-size:11.5px;line-height:1.4}
+  .feed-empty{
+    padding:14px;color:var(--green-dim);font-size:12px;line-height:1.7;
+    border:1px dashed var(--green-deep);border-radius:2px;
+  }
+  .feed-empty b{color:var(--amber)}
+  .feed-empty code{
+    background:rgba(0,255,65,.06);color:var(--green);padding:1px 5px;border-radius:2px;
+    border:1px solid var(--green-deep);font-size:11.5px;
+  }
+
+  /* footer */
+  footer{
+    margin-top:24px;color:var(--green-dim);font-size:11px;letter-spacing:.1em;
+    text-align:center;text-transform:uppercase;
+    border-top:1px solid var(--green-deep);padding-top:14px;
+  }
+  footer .disclaimer{color:#666;text-transform:none;letter-spacing:0;margin-top:6px;font-size:11px;line-height:1.5;max-width:760px;margin-left:auto;margin-right:auto}
+
+  /* small */
+  @media (max-width:700px){
+    .hero pre{font-size:7px}
+    .wrap{padding:14px 14px 60px}
+    .stat .v{font-size:18px}
+  }
+</style>
+</head>
+<body>
+
+<!-- BOOT SEQUENCE -->
+<div id="boot" aria-hidden="true">
+  <div id="boot-out"></div>
+</div>
+
+<div class="wrap" id="app" style="opacity:0">
+  <div class="topbar">
+    <div><span class="led"></span> KEEPWHATSYOURS.AI · v0.1.0 · NODE-7</div>
+    <div class="right">
+      <span id="clock">--:--:-- UTC</span>
+      <span id="net-status">CONN: <span style="color:var(--green)">LIVE</span></span>
+    </div>
+  </div>
+
+  <div class="hero">
+<pre>
+ ██╗  ██╗███████╗███████╗██████╗ ██╗    ██╗██╗  ██╗ █████╗ ████████╗███████╗██╗   ██╗ ██████╗ ██╗   ██╗██████╗ ███████╗
+ ██║ ██╔╝██╔════╝██╔════╝██╔══██╗██║    ██║██║  ██║██╔══██╗╚══██╔══╝██╔════╝╚██╗ ██╔╝██╔═══██╗██║   ██║██╔══██╗██╔════╝
+ █████╔╝ █████╗  █████╗  ██████╔╝██║ █╗ ██║███████║███████║   ██║   ███████╗ ╚████╔╝ ██║   ██║██║   ██║██████╔╝███████╗
+ ██╔═██╗ ██╔══╝  ██╔══╝  ██╔═══╝ ██║███╗██║██╔══██║██╔══██║   ██║   ╚════██║  ╚██╔╝  ██║   ██║██║   ██║██╔══██╗╚════██║
+ ██║  ██╗███████╗███████╗██║     ╚███╔███╔╝██║  ██║██║  ██║   ██║   ███████║   ██║   ╚██████╔╝╚██████╔╝██║  ██║███████║
+ ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝      ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝   ╚═╝    ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝
+                                                                                                              .AI
+</pre>
+  </div>
+  <div class="tagline">// daily <b>ai-generated</b> meme coin ops &nbsp;·&nbsp; live <b>p&amp;l</b> &nbsp;·&nbsp; no hopium <b>only data</b><span class="cursor">&nbsp;</span></div>
+
+  <!-- STATS -->
+  <div class="panel">
+    <h2>SIGNAL STATUS <span class="meta" id="updated">syncing…</span></h2>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <!-- TODAY'S OPS -->
+  <div class="panel">
+    <h2>ACTIVE OPS <span class="meta" id="active-meta">open positions</span></h2>
+    <div class="picks" id="active-picks"></div>
+  </div>
+
+  <!-- INTEL FEED (DISCORD) -->
+  <div class="panel">
+    <h2>INTEL FEED <span class="meta" id="feed-meta">// awaiting uplink…</span></h2>
+    <div id="feed" class="feed"></div>
+  </div>
+
+  <!-- CUMULATIVE P&L -->
+  <div class="panel">
+    <h2>CUMULATIVE P&amp;L <span class="meta">usd / since inception</span></h2>
+    <div class="chart-wrap"><canvas id="pnl-chart"></canvas></div>
+  </div>
+
+  <!-- TRACK RECORD -->
+  <div class="panel">
+    <h2>TRACK RECORD <span class="meta" id="tr-meta"></span></h2>
+    <div style="overflow-x:auto">
+      <table id="track">
+        <thead>
+          <tr>
+            <th>DATE</th>
+            <th>SYM</th>
+            <th class="num">ENTRY</th>
+            <th class="num">EXIT / LIVE</th>
+            <th class="num">% RET</th>
+            <th class="num">P&amp;L USD</th>
+            <th>STATUS</th>
+            <th>THESIS</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    [ KEEPWHATSYOURS.AI ] · BUILT FOR DEGENS · POWERED BY OPEN CLAW · PRICES via COINGECKO
+    <div class="disclaimer">Disclaimer: this is not financial advice. Meme coins are extremely volatile and you can lose 100% of your capital. The picks shown here are AI-generated experiments. Do your own research.</div>
+  </footer>
+</div>
+
+<!-- Embedded fallback so the page works even when opened via file:// -->
+<script id="picks-fallback" type="application/json">
+{
+  "starting_capital_usd": 10000,
+  "picks": [
+    {"date":"2026-04-08","symbol":"PEPE","name":"Pepe","coingecko_id":"pepe","entry_price":0.00000812,"size_usd":1000,"thesis":"Frog-szn rotation; volume bid past resistance on 4h.","status":"closed","exit_price":0.00000961,"exit_date":"2026-04-11"},
+    {"date":"2026-04-10","symbol":"WIF","name":"dogwifhat","coingecko_id":"dogwifcoin","entry_price":1.84,"size_usd":1000,"thesis":"SOL meme leader, hat narrative re-igniting.","status":"closed","exit_price":1.62,"exit_date":"2026-04-13"},
+    {"date":"2026-04-12","symbol":"BONK","name":"Bonk","coingecko_id":"bonk","entry_price":0.0000241,"size_usd":1000,"thesis":"Burn announcement + SOL beta; tight risk.","status":"closed","exit_price":0.0000284,"exit_date":"2026-04-15"},
+    {"date":"2026-04-15","symbol":"POPCAT","name":"Popcat","coingecko_id":"popcat","entry_price":0.71,"size_usd":1000,"thesis":"Reclaim of weekly pivot; CT mindshare ticking up.","status":"closed","exit_price":0.92,"exit_date":"2026-04-19"},
+    {"date":"2026-04-17","symbol":"BOME","name":"Book of Meme","coingecko_id":"book-of-meme","entry_price":0.0098,"size_usd":1000,"thesis":"Liquidity returning post-cooldown; OI low.","status":"closed","exit_price":0.0089,"exit_date":"2026-04-20"},
+    {"date":"2026-04-19","symbol":"MOG","name":"Mog Coin","coingecko_id":"mog-coin","entry_price":0.00000142,"size_usd":1000,"thesis":"Base meme rotation; chart cup-and-handle.","status":"closed","exit_price":0.00000178,"exit_date":"2026-04-23"},
+    {"date":"2026-04-22","symbol":"BRETT","name":"Brett","coingecko_id":"based-brett","entry_price":0.082,"size_usd":1000,"thesis":"Coinbase listing chatter; Base ecosystem pump.","status":"closed","exit_price":0.094,"exit_date":"2026-04-26"},
+    {"date":"2026-04-25","symbol":"FLOKI","name":"Floki","coingecko_id":"floki","entry_price":0.149,"size_usd":1000,"thesis":"Valhalla update news; healthy retrace bought.","status":"closed","exit_price":0.171,"exit_date":"2026-04-29"},
+    {"date":"2026-04-28","symbol":"SHIB","name":"Shiba Inu","coingecko_id":"shiba-inu","entry_price":0.0000182,"size_usd":1000,"thesis":"Burn rate spike + Shibarium TVL ATH.","status":"closed","exit_price":0.0000174,"exit_date":"2026-05-01"},
+    {"date":"2026-05-01","symbol":"DOGE","name":"Dogecoin","coingecko_id":"dogecoin","entry_price":0.158,"size_usd":1000,"thesis":"Macro alt rotation; DOGE leads memes when BTC chops.","status":"closed","exit_price":0.181,"exit_date":"2026-05-04"},
+    {"date":"2026-05-04","symbol":"PEPE","name":"Pepe","coingecko_id":"pepe","entry_price":0.00000934,"size_usd":1000,"thesis":"Re-entry after consolidation flag; vol expanding.","status":"open"},
+    {"date":"2026-05-06","symbol":"WIF","name":"dogwifhat","coingecko_id":"dogwifcoin","entry_price":1.71,"size_usd":1000,"thesis":"Bounce off weekly demand; SOL strength resuming.","status":"open"},
+    {"date":"2026-05-07","symbol":"BONK","name":"Bonk","coingecko_id":"bonk","entry_price":0.0000262,"size_usd":1000,"thesis":"Today's pick — tight stop below 0.0000245, target 0.0000310.","status":"open"}
+  ]
+}
+</script>
+
+<script>
+/* =========================================================
+   KEEPWHATSYOURS.AI — frontend
+   ========================================================= */
+
+/* ---------- CONFIG ---------- */
+// Paste your deployed Discord-feed bot URL here, e.g.:
+//   "https://kwy-feed.up.railway.app/feed"
+// Leave blank to show the offline placeholder. See bot/README.md for setup.
+const FEED_URL = "";
+const FEED_POLL_MS = 15000;
+
+const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
+
+/* ---------- BOOT SEQUENCE ---------- */
+const bootLines = [
+  { t: "$ ./keepwhatsyours --mode=meme --strategy=open-claw", d: 80 },
+  { t: "[boot] kernel  ........................ ok", d: 120 },
+  { t: "[boot] entropy ........................ ok", d: 120 },
+  { t: "[boot] tor circuit .................... bypassed", d: 120, cls:"warn" },
+  { t: "[net]  connecting to coingecko mainnet  ok", d: 160 },
+  { t: "[data] loading picks.json ............. ok", d: 160 },
+  { t: "[ai]   calibrating greed index ........ 73/100", d: 160 },
+  { t: "[risk] stop-loss daemon ............... armed", d: 160 },
+  { t: "                                              ", d: 80 },
+  { t: ">> SYSTEM READY. WELCOME TO KEEPWHATSYOURS.AI <<", d: 200 },
+];
+async function runBoot(){
+  const out = document.getElementById("boot-out");
+  for(const l of bootLines){
+    const div = document.createElement("div");
+    div.className = "line"+(l.cls?(" "+l.cls):"");
+    div.textContent = l.t;
+    out.appendChild(div);
+    await new Promise(r=>setTimeout(r,l.d));
+  }
+  await new Promise(r=>setTimeout(r,400));
+  document.getElementById("boot").classList.add("fade");
+  setTimeout(()=>document.getElementById("boot").remove(),900);
+  document.getElementById("app").style.transition="opacity .6s ease";
+  document.getElementById("app").style.opacity="1";
+}
+
+/* ---------- DATA ---------- */
+async function loadPicks(){
+  // try fetch picks.json, fallback to embedded
+  try{
+    const r = await fetch("picks.json", {cache:"no-store"});
+    if(!r.ok) throw new Error("status "+r.status);
+    return await r.json();
+  }catch(err){
+    console.warn("picks.json fetch failed, using embedded fallback:", err);
+    const fallback = document.getElementById("picks-fallback").textContent.trim();
+    if(!fallback || fallback === "__PICKS_FALLBACK__") return {picks:[],starting_capital_usd:10000};
+    return JSON.parse(fallback);
+  }
+}
+
+async function fetchLivePrices(ids){
+  if(!ids.length) return {};
+  try{
+    const url = `${COINGECKO}?ids=${encodeURIComponent(ids.join(","))}&vs_currencies=usd`;
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error("coingecko "+r.status);
+    return await r.json();
+  }catch(err){
+    console.warn("live price fetch failed:", err);
+    document.getElementById("net-status").innerHTML =
+      'CONN: <span style="color:var(--amber)">DEGRADED</span>';
+    return {};
+  }
+}
+
+/* ---------- FORMATTING ---------- */
+const fmtUSD = n => {
+  if(n===null||n===undefined||isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if(abs>=1)   return "$"+n.toFixed(2);
+  if(abs>=0.01) return "$"+n.toFixed(4);
+  if(abs>=0.0001) return "$"+n.toFixed(6);
+  return "$"+n.toExponential(3);
+};
+const fmtPct = n => {
+  if(n===null||n===undefined||isNaN(n)) return "—";
+  const sign = n>=0?"+":"";
+  return sign+n.toFixed(2)+"%";
+};
+const fmtMoney = n => {
+  if(n===null||n===undefined||isNaN(n)) return "—";
+  const sign = n>=0?"+":"-";
+  return sign+"$"+Math.abs(n).toFixed(2);
+};
+
+/* ---------- COMPUTE ---------- */
+function enrich(picks, prices){
+  return picks.map(p=>{
+    const live = prices[p.coingecko_id]?.usd ?? null;
+    const exit = p.status === "closed" ? p.exit_price : live;
+    const pct  = (exit!=null && p.entry_price)
+                  ? ((exit - p.entry_price) / p.entry_price) * 100
+                  : null;
+    const size = p.size_usd ?? 1000;
+    const pnl  = pct!=null ? (pct/100) * size : null;
+    return { ...p, live, exit_or_live: exit, pct, pnl };
+  });
+}
+
+function computeStats(rows, startingCapital){
+  const closed = rows.filter(r=>r.status==="closed");
+  const open   = rows.filter(r=>r.status==="open");
+  const wins   = closed.filter(r=>r.pnl > 0).length;
+  const winRate = closed.length ? (wins/closed.length)*100 : 0;
+  const realized = closed.reduce((s,r)=>s+(r.pnl||0),0);
+  const unrealized = open.reduce((s,r)=>s+(r.pnl||0),0);
+  const total = realized + unrealized;
+  const best = rows.reduce((b,r)=> (r.pct!=null && (b===null||r.pct>b.pct)) ? r : b, null);
+  const worst= rows.reduce((b,r)=> (r.pct!=null && (b===null||r.pct<b.pct)) ? r : b, null);
+  const equity = (startingCapital ?? 10000) + total;
+  const totalPct = ((equity / (startingCapital ?? 10000)) - 1) * 100;
+  return {closed, open, wins, winRate, realized, unrealized, total, best, worst, equity, totalPct};
+}
+
+/* ---------- RENDER ---------- */
+function renderStats(s, startingCapital){
+  const cls = v => v>0 ? "" : (v<0 ? "red" : "amb");
+  const sc = startingCapital ?? 10000;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="k">Equity</div>          <div class="v">${fmtUSD(s.equity)}</div></div>
+    <div class="stat"><div class="k">Total Return</div>    <div class="v ${cls(s.totalPct)}">${fmtPct(s.totalPct)}</div></div>
+    <div class="stat"><div class="k">Realized P&amp;L</div><div class="v ${cls(s.realized)}">${fmtMoney(s.realized)}</div></div>
+    <div class="stat"><div class="k">Unrealized P&amp;L</div><div class="v ${cls(s.unrealized)}">${fmtMoney(s.unrealized)}</div></div>
+    <div class="stat"><div class="k">Win Rate</div>        <div class="v ${cls(s.winRate-50)}">${s.winRate.toFixed(1)}%</div></div>
+    <div class="stat"><div class="k">Closed Picks</div>    <div class="v">${s.closed.length}</div></div>
+    <div class="stat"><div class="k">Best</div>            <div class="v">${s.best?s.best.symbol+" "+fmtPct(s.best.pct):"—"}</div></div>
+    <div class="stat"><div class="k">Worst</div>           <div class="v red">${s.worst?s.worst.symbol+" "+fmtPct(s.worst.pct):"—"}</div></div>
+  `;
+}
+
+function renderActivePicks(open){
+  const el = document.getElementById("active-picks");
+  if(!open.length){
+    el.innerHTML = `<div style="color:var(--green-dim);padding:10px">// no active ops. waiting for next signal…</div>`;
+    return;
+  }
+  el.innerHTML = open.map(p=>{
+    const cls = p.pnl>=0 ? "pos" : "neg";
+    const arrow = p.pnl>=0 ? "▲" : "▼";
+    return `
+      <div class="pick">
+        <div class="row1">
+          <div>
+            <div class="sym">$${p.symbol}</div>
+            <div class="name">${p.name}</div>
+          </div>
+          <div class="pnl ${cls}">${arrow} ${fmtPct(p.pct)}</div>
+        </div>
+        <div class="thesis">${p.thesis||""}</div>
+        <div class="meta">
+          <span>entry ${fmtUSD(p.entry_price)}</span>
+          <span>live ${fmtUSD(p.live)}</span>
+          <span>size $${(p.size_usd||1000).toLocaleString()}</span>
+          <span>${p.date}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+  document.getElementById("active-meta").textContent =
+    `${open.length} open · ${fmtMoney(open.reduce((s,p)=>s+(p.pnl||0),0))} unrealized`;
+}
+
+function renderTable(rows){
+  rows = [...rows].sort((a,b)=> (a.date<b.date?1:-1));
+  const tbody = document.querySelector("#track tbody");
+  tbody.innerHTML = rows.map(r=>{
+    const c = r.pct>=0 ? "pos" : "neg";
+    return `
+      <tr>
+        <td>${r.date}</td>
+        <td><b>$${r.symbol}</b></td>
+        <td class="num">${fmtUSD(r.entry_price)}</td>
+        <td class="num">${fmtUSD(r.exit_or_live)}</td>
+        <td class="num ${c}">${fmtPct(r.pct)}</td>
+        <td class="num ${c}">${fmtMoney(r.pnl)}</td>
+        <td><span class="tag ${r.status}">${r.status}</span></td>
+        <td style="color:#9ad99a">${r.thesis||""}</td>
+      </tr>
+    `;
+  }).join("");
+  document.getElementById("tr-meta").textContent = `${rows.length} picks logged`;
+}
+
+function renderChart(rows, startingCapital){
+  // build cumulative equity curve by realization date.
+  // closed picks contribute on exit_date; open picks contribute on today.
+  const today = new Date().toISOString().slice(0,10);
+  const events = rows.map(r => ({
+    date: r.status === "closed" ? (r.exit_date || r.date) : today,
+    pnl:  r.pnl || 0,
+    sym:  r.symbol,
+  }));
+  events.sort((a,b)=> a.date<b.date ? -1 : 1);
+
+  let equity = startingCapital ?? 10000;
+  const labels = [];
+  const data   = [];
+  // start point
+  const firstDate = events.length ? events[0].date : today;
+  labels.push(firstDate);
+  data.push(equity);
+  for(const e of events){
+    equity += e.pnl;
+    labels.push(e.date);
+    data.push(equity);
+  }
+
+  const ctx = document.getElementById("pnl-chart");
+  // matrix-styled chart
+  Chart.defaults.color = "#1f9f3a";
+  Chart.defaults.font.family = "JetBrains Mono, monospace";
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Equity USD",
+        data,
+        borderColor: "#00ff41",
+        backgroundColor: ctx => {
+          const {chart}=ctx;
+          const {ctx:c, chartArea}=chart;
+          if(!chartArea) return "rgba(0,255,65,.15)";
+          const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          g.addColorStop(0, "rgba(0,255,65,.35)");
+          g.addColorStop(1, "rgba(0,255,65,0)");
+          return g;
+        },
+        fill: true,
+        tension: .25,
+        pointRadius: 3,
+        pointBackgroundColor: "#0a0e0a",
+        pointBorderColor: "#00ff41",
+        pointHoverRadius: 6,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:"#0a0e0a",
+          borderColor:"#1f9f3a",
+          borderWidth:1,
+          titleColor:"#00ff41",
+          bodyColor:"#9ad99a",
+          callbacks:{
+            label: c => " equity " + fmtUSD(c.parsed.y),
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{color:"rgba(0,255,65,.07)"},
+          ticks:{color:"#1f9f3a", maxRotation:0, autoSkip:true, maxTicksLimit:8},
+        },
+        y:{
+          grid:{color:"rgba(0,255,65,.07)"},
+          ticks:{color:"#1f9f3a", callback: v => "$"+v.toLocaleString()},
+        }
+      },
+      animation:{duration:900, easing:"easeOutCubic"},
+    }
+  });
+}
+
+/* ---------- INTEL FEED (DISCORD) ---------- */
+const escapeHTML = s => String(s ?? "").replace(/[&<>"']/g, c => ({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+
+// linkify URLs and discord mentions; assumes input is already escaped
+const linkify = s => s
+  .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+  .replace(/&lt;@!?(\d+)&gt;/g, '<span style="color:var(--amber)">@user</span>')
+  .replace(/&lt;#(\d+)&gt;/g,    '<span style="color:var(--amber)">#chan</span>');
+
+const isImage = a => (a.contentType||"").startsWith("image/") ||
+                     /\.(png|jpe?g|gif|webp|avif)$/i.test(a.url||"");
+
+const fmtTs = iso => {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2,"0");
+  return `[${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}]`;
+};
+
+let feedSeen = new Set();
+let feedFirstRender = true;
+
+function renderFeedOffline(){
+  const f = document.getElementById("feed");
+  document.getElementById("feed-meta").textContent = "// FEED OFFLINE";
+  f.innerHTML = `
+    <div class="feed-empty">
+> <b>FEED OFFLINE</b> — no Discord uplink configured.
+
+  $ deploy <code>./bot</code> to Railway / Fly.io / Render
+  $ paste the public <code>/feed</code> URL into <code>FEED_URL</code> in <code>index.html</code>
+  $ reload — messages from your channel will start streaming here.
+
+  see <code>bot/README.md</code> for the 5-minute walkthrough.
+    </div>`;
+}
+
+function renderFeedError(msg){
+  const f = document.getElementById("feed");
+  document.getElementById("feed-meta").innerHTML =
+    '<span style="color:var(--red)">// CONNECTION ERROR</span>';
+  if(feedFirstRender){
+    f.innerHTML = `<div class="feed-empty">
+> <b style="color:var(--red)">UPLINK FAILED</b>
+  ${escapeHTML(msg)}
+
+  $ check the bot is running and reachable
+  $ check ALLOWED_ORIGIN includes this site
+  $ check FEED_URL is the bot's <code>/feed</code> endpoint
+    </div>`;
+  }
+}
+
+function renderFeed(messages){
+  const f = document.getElementById("feed");
+  if(!messages.length){
+    f.innerHTML = `<div class="feed-empty">// channel is quiet. waiting for transmission…</div>`;
+    document.getElementById("feed-meta").textContent = "0 msgs · live";
+    return;
+  }
+
+  // detect new messages for the "fresh" highlight
+  const html = messages.map(m => {
+    const fresh = !feedFirstRender && !feedSeen.has(m.id);
+    feedSeen.add(m.id);
+
+    const body = m.content
+      ? `<div class="body">${linkify(escapeHTML(m.content))}</div>`
+      : "";
+
+    const atts = (m.attachments||[]).map(a => {
+      if(isImage(a)) return `<img src="${escapeHTML(a.url)}" alt="${escapeHTML(a.name||"")}" loading="lazy" />`;
+      return `<a class="file" href="${escapeHTML(a.url)}" target="_blank" rel="noopener">📎 ${escapeHTML(a.name||"file")}</a>`;
+    }).join("");
+
+    const embeds = (m.embeds||[]).filter(e=>e.title||e.description).map(e => `
+      <div class="embed">
+        ${e.title ? `<div class="et">${linkify(escapeHTML(e.title))}</div>`:""}
+        ${e.description ? `<div class="ed">${linkify(escapeHTML(e.description))}</div>`:""}
+      </div>`).join("");
+
+    return `
+      <div class="feed-msg${fresh?" fresh":""}">
+        <div class="head">
+          <span class="ts">${fmtTs(m.timestamp)}</span>
+          <span class="who${m.bot?" bot":""}">@${escapeHTML(m.author)}</span>
+        </div>
+        ${body}
+        ${atts ? `<div class="att">${atts}</div>` : ""}
+        ${embeds}
+      </div>`;
+  }).join("");
+
+  f.innerHTML = html;
+  feedFirstRender = false;
+
+  // fade highlight after the animation
+  setTimeout(()=>{
+    f.querySelectorAll(".feed-msg.fresh").forEach(el => el.classList.remove("fresh"));
+  }, 1800);
+
+  document.getElementById("feed-meta").textContent =
+    `${messages.length} msgs · live · last sync ${new Date().toLocaleTimeString(undefined,{hour12:false})}`;
+}
+
+async function pollFeed(){
+  if(!FEED_URL){ renderFeedOffline(); return; }
+  try{
+    const r = await fetch(FEED_URL, {cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data = await r.json();
+    const msgs = Array.isArray(data) ? data : (data.messages || []);
+    renderFeed(msgs);
+  }catch(err){
+    renderFeedError(err.message || String(err));
+  }
+}
+function startFeedPolling(){
+  pollFeed();
+  if(FEED_URL) setInterval(pollFeed, FEED_POLL_MS);
+}
+
+/* ---------- CLOCK ---------- */
+function tickClock(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  document.getElementById("clock").textContent =
+    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* ---------- MAIN ---------- */
+(async function main(){
+  runBoot(); // don't await; runs in parallel
+  const data = await loadPicks();
+  const picks = data.picks || [];
+  const startingCapital = data.starting_capital_usd ?? 10000;
+
+  const ids = [...new Set(picks.map(p=>p.coingecko_id).filter(Boolean))];
+  const prices = await fetchLivePrices(ids);
+
+  const enriched = enrich(picks, prices);
+  const stats    = computeStats(enriched, startingCapital);
+
+  renderStats(stats, startingCapital);
+  renderActivePicks(enriched.filter(p=>p.status==="open"));
+  renderChart(enriched, startingCapital);
+  renderTable(enriched);
+  startFeedPolling();
+
+  const updated = new Date().toLocaleString(undefined,{hour12:false});
+  document.getElementById("updated").textContent = "last sync " + updated;
+})();
+</script>
+</body>
+</html>
