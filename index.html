@@ -835,6 +835,16 @@ function buildMarketData(messages) {
   const posts = messages.map(parseBubbaPost).filter(Boolean);
   // posts come newest-first from /feed; keep that order
 
+  // Attach post-level metadata to each coin so flagsBySymbol can hold REFERENCES
+  // (so live data attached later in enrichWithLive() flows through everywhere).
+  for (const p of posts) {
+    for (const c of p.coins) {
+      c.ts = p.ts;
+      c.tier = p.tier;
+      c.postId = p.id;
+    }
+  }
+
   const latestByTier = {};
   for (const p of posts) if (!latestByTier[p.tier]) latestByTier[p.tier] = p;
 
@@ -845,7 +855,7 @@ function buildMarketData(messages) {
     for (const c of p.coins) {
       flagCounts.set(c.symbol, (flagCounts.get(c.symbol)||0)+1);
       if (!flagsBySymbol.has(c.symbol)) flagsBySymbol.set(c.symbol, []);
-      flagsBySymbol.get(c.symbol).push({ ts: p.ts, tier: p.tier, ...c });
+      flagsBySymbol.get(c.symbol).push(c); // reference, not copy
       totalFlags++;
     }
   }
