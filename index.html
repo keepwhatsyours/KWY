@@ -360,12 +360,6 @@
     <div id="feed" class="feed"></div>
   </div>
 
-  <!-- SCAN ACTIVITY — coins flagged per day -->
-  <div class="panel">
-    <h2>SCAN ACTIVITY <span class="meta">coins flagged per day · by tier</span></h2>
-    <div class="chart-wrap"><canvas id="pnl-chart"></canvas></div>
-  </div>
-
   <!-- FLAG HISTORY — every coin flag from Discord, newest first -->
   <div class="panel">
     <h2>FLAG HISTORY <span class="meta" id="tr-meta"></span></h2>
@@ -1007,52 +1001,6 @@ function renderFlagHistory(md) {
   document.getElementById("tr-meta").textContent = `${rows.length} flags logged · showing newest 80`;
 }
 
-let activityChart = null;
-function renderActivityChart(md) {
-  // bucket by day + tier
-  const buckets = {}; // { "MM-DD": { big: n, mid: n, low: n } }
-  for (const p of md.posts) {
-    const day = p.ts.slice(5,10); // MM-DD
-    if (!buckets[day]) buckets[day] = { big: 0, mid: 0, low: 0 };
-    buckets[day][p.tier] += p.coins.length;
-  }
-  const days = Object.keys(buckets).sort();
-  const big = days.map(d => buckets[d].big);
-  const mid = days.map(d => buckets[d].mid);
-  const low = days.map(d => buckets[d].low);
-
-  const ctx = document.getElementById("pnl-chart");
-  Chart.defaults.color = "#1f9f3a";
-  Chart.defaults.font.family = "JetBrains Mono, monospace";
-  if (activityChart) { activityChart.destroy(); activityChart = null; }
-  activityChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: days,
-      datasets: [
-        { label: "Big",  data: big, backgroundColor: "rgba(0,255,65,.7)",   borderColor: "var(--green)", stack: "x" },
-        { label: "Mid",  data: mid, backgroundColor: "rgba(255,176,0,.7)",  borderColor: "var(--amber)", stack: "x" },
-        { label: "Low",  data: low, backgroundColor: "rgba(255,85,119,.7)", borderColor: "#ff5577",      stack: "x" },
-      ],
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:true, labels:{color:"#1f9f3a", font:{size:11}}},
-        tooltip:{
-          backgroundColor:"#0a0e0a", borderColor:"#1f9f3a", borderWidth:1,
-          titleColor:"#00ff41", bodyColor:"#9ad99a",
-        }
-      },
-      scales:{
-        x:{ stacked:true, grid:{color:"rgba(0,255,65,.07)"}, ticks:{color:"#1f9f3a"} },
-        y:{ stacked:true, grid:{color:"rgba(0,255,65,.07)"}, ticks:{color:"#1f9f3a"} },
-      },
-      animation:{duration:600, easing:"easeOutCubic"},
-    }
-  });
-}
-
 /* compute per-token MCAP change for ROLLING LAST 24 HOURS:
    first flag in the last 24h vs LIVE MCAP from Dexscreener.
    Keyed by contract address (NOT symbol) — same symbol can be a different
@@ -1208,7 +1156,6 @@ function renderAllScanPanels(md) {
   renderMarketScan(md);
   renderWinnersLosers(md);
   renderFlagHistory(md);
-  renderActivityChart(md);
 }
 
 /* ---------- INTEL FEED (DISCORD) ---------- */
