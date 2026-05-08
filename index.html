@@ -90,15 +90,13 @@
   .hero{
     text-align:center;margin:18px 0 10px;
     text-shadow:0 0 14px rgba(0,255,65,.55);
-    overflow-x:hidden;  /* belt-and-suspenders if anyone narrower than 320px */
   }
-  .hero pre{
+  .hero-ascii{
     display:inline-block;margin:0;
-    /* scale linearly with viewport so the 122-char banner always fits.
-       at 320px → ~3.4px, at 1200px → 12px (capped) */
-    font-size:clamp(3px,1.05vw,12px);line-height:1.05;
+    font-size:clamp(6px,1.05vw,12px);line-height:1.05;
     color:var(--green);
   }
+  .hero-mobile{display:none}
   .tagline{
     text-align:center;color:var(--green-dim);font-size:12px;
     margin:4px 0 22px;letter-spacing:.18em;text-transform:uppercase;
@@ -352,7 +350,16 @@
 
   /* small */
   @media (max-width:700px){
-    /* let clamp() drive the hero size; previously hard-pinned at 7px which overflowed phones */
+    /* hide the wide ASCII banner; show a compact text logo instead */
+    .hero-ascii{display:none}
+    .hero-mobile{
+      display:block;margin:8px 0 4px;
+      font-family:var(--mono);font-weight:700;letter-spacing:.04em;
+      font-size:clamp(20px,7vw,30px);
+      color:var(--green);
+      text-shadow:0 0 14px rgba(0,255,65,.55);
+    }
+    .hero-mobile .dot{color:var(--amber)}
     .wrap{padding:14px 14px 60px}
     .stat .v{font-size:18px}
   }
@@ -375,7 +382,7 @@
   </div>
 
   <div class="hero">
-<pre>
+<pre class="hero-ascii">
  ██╗  ██╗███████╗███████╗██████╗ ██╗    ██╗██╗  ██╗ █████╗ ████████╗███████╗██╗   ██╗ ██████╗ ██╗   ██╗██████╗ ███████╗
  ██║ ██╔╝██╔════╝██╔════╝██╔══██╗██║    ██║██║  ██║██╔══██╗╚══██╔══╝██╔════╝╚██╗ ██╔╝██╔═══██╗██║   ██║██╔══██╗██╔════╝
  █████╔╝ █████╗  █████╗  ██████╔╝██║ █╗ ██║███████║███████║   ██║   ███████╗ ╚████╔╝ ██║   ██║██║   ██║██████╔╝███████╗
@@ -384,6 +391,7 @@
  ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝      ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝   ╚═╝    ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝
                                                                                                               .AI
 </pre>
+    <h1 class="hero-mobile">▌ KEEPWHATSYOURS<span class="dot">.AI</span></h1>
   </div>
   <div class="tagline">// daily <b>ai-generated</b> meme coin ops &nbsp;·&nbsp; live <b>p&amp;l</b> &nbsp;·&nbsp; no hopium <b>only data</b><span class="cursor">&nbsp;</span></div>
 
