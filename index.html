@@ -254,6 +254,40 @@
   .wl-summary .pill b{color:var(--green);font-weight:600}
   .wl-summary .pill.loser b{color:#ff5577}
 
+  /* burpboard top 10 */
+  .bb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+  .bb-coin{
+    border:1px solid var(--green-deep);background:rgba(0,255,65,.025);
+    border-radius:3px;padding:10px 12px;position:relative;
+    display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+  }
+  .bb-coin .rank{
+    font-size:18px;font-weight:700;color:var(--green);
+    text-shadow:0 0 8px rgba(0,255,65,.4);
+    min-width:30px;text-align:center;
+  }
+  .bb-coin .rank.gold{color:#ffd54a;text-shadow:0 0 10px rgba(255,213,74,.5)}
+  .bb-coin .rank.silver{color:#c0c0c0;text-shadow:0 0 8px rgba(192,192,192,.45)}
+  .bb-coin .rank.bronze{color:#cd7f32;text-shadow:0 0 8px rgba(205,127,50,.45)}
+  .bb-coin .body .sym{font-size:15px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.4);letter-spacing:.04em}
+  .bb-coin .body .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:3px;font-size:10.5px;color:var(--green-dim)}
+  .bb-coin .body .meta .chain{
+    padding:1px 6px;border:1px solid var(--green-deep);border-radius:2px;
+    text-transform:uppercase;letter-spacing:.08em;
+  }
+  .bb-coin .body .meta .chain.sol{color:#9945ff;border-color:#9945ff66}
+  .bb-coin .body .meta .chain.eth{color:#7ad0ff;border-color:#7ad0ff66}
+  .bb-coin .body .meta .chain.bsc{color:#f0b90b;border-color:#f0b90b66}
+  .bb-coin .body .meta .chain.base{color:#0052ff;border-color:#0052ff77}
+  .bb-coin .body .flow{margin-top:3px;font-size:11.5px;color:#cdeacd;font-variant-numeric:tabular-nums}
+  .bb-coin .body .flow .arrow{color:var(--green-dim);margin:0 4px}
+  .bb-coin .mult{
+    font-size:18px;font-weight:700;color:var(--green);
+    text-shadow:0 0 8px rgba(0,255,65,.45);
+    background:rgba(0,255,65,.06);border:1px solid var(--green);
+    padding:4px 10px;border-radius:3px;letter-spacing:.04em;
+  }
+
   /* clickable symbol cell in flag history */
   td.sym-cell{cursor:pointer;transition:background .15s}
   td.sym-cell:hover{background:rgba(0,255,65,.07)}
@@ -367,6 +401,16 @@
   <div class="panel">
     <h2>INTEL FEED <span class="meta" id="feed-meta">// awaiting uplink…</span></h2>
     <div id="feed" class="feed"></div>
+  </div>
+
+  <!-- TOP 10 GAINERS — from BurpBoard Telegram channel -->
+  <div class="panel">
+    <h2>TOP 10 GAINERS <span class="meta" id="bb-meta">// awaiting burpboard…</span></h2>
+    <div id="bb-summary" class="wl-summary"></div>
+    <div id="burpboard"></div>
+    <div style="text-align:right;font-size:10px;color:var(--green-dim);margin-top:6px;letter-spacing:.1em;text-transform:uppercase">
+      source: <a href="https://t.me/burpboard" target="_blank" rel="noopener">t.me/burpboard</a>
+    </div>
   </div>
 
   <!-- FLAG HISTORY — every coin flag from Discord, newest first -->
@@ -1316,6 +1360,74 @@ async function pollFeed(){
     renderFeedError(err.message || String(err));
   }
 }
+
+/* ---------- BURPBOARD (Top 10 Gainers) ---------- */
+const BURP_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/burpboard") : "";
+const BURP_POLL_MS = 60_000;
+
+const rankLabel = r => ({1:"🥇",2:"🥈",3:"🥉"}[r] || (r === 10 ? "🔟" : r + "️⃣"));
+const rankClass = r => r === 1 ? "gold" : r === 2 ? "silver" : r === 3 ? "bronze" : "";
+
+function renderBurpboard(data) {
+  const meta = document.getElementById("bb-meta");
+  const summaryEl = document.getElementById("bb-summary");
+  const wrap = document.getElementById("burpboard");
+  if (!data?.tokens?.length) {
+    meta.textContent = "// no burpboard data yet";
+    summaryEl.innerHTML = "";
+    wrap.innerHTML = `<div class="feed-empty">// awaiting burpboard scrape…</div>`;
+    return;
+  }
+  const s = data.summary || {};
+  meta.textContent = `last 24h · last sync ${new Date(data.updated).toLocaleTimeString(undefined,{hour12:false})}`;
+  summaryEl.innerHTML = `
+    ${s.avgGain ? `<span class="pill">avg: <b>${escapeHTML(s.avgGain)}</b></span>` : ""}
+    ${s.top10   ? `<span class="pill">top 10: <b>${escapeHTML(s.top10)}</b></span>` : ""}
+    ${s.median  ? `<span class="pill">median: <b>${escapeHTML(s.median)}</b></span>` : ""}
+    ${s.tracked ? `<span class="pill">tracked: <b>${s.tracked}</b></span>` : ""}
+  `;
+
+  wrap.innerHTML = `<div class="bb-grid">${
+    data.tokens.map(t => `
+      <div class="bb-coin">
+        <div class="rank ${rankClass(t.rank)}">${rankLabel(t.rank)}</div>
+        <div class="body">
+          <div class="sym">$${escapeHTML(t.symbol)}${t.athStatus ? ` <span title="ATH cool-off">${escapeHTML(t.athStatus)}</span>`:""}</div>
+          <div class="flow">
+            <span>${escapeHTML(t.entryMcap||"—")}</span>
+            <span class="arrow">→</span>
+            <span><b>${escapeHTML(t.currentMcap||"—")}</b></span>
+          </div>
+          <div class="meta">
+            ${t.chain ? `<span class="chain ${escapeHTML(t.chain)}">${escapeHTML(t.chain)}</span>` : ""}
+            ${t.ath ? `<span>ATH ${escapeHTML(t.ath)} ${escapeHTML(t.athStatus||"")}</span>` : ""}
+            ${t.botUrl ? `<a href="${escapeHTML(t.botUrl)}" target="_blank" rel="noopener" style="color:var(--green-dim)">burpbot ↗</a>` : ""}
+          </div>
+        </div>
+        <div class="mult">${escapeHTML(t.multiplier||"—")}</div>
+      </div>
+    `).join("")
+  }</div>`;
+}
+
+async function pollBurpboard() {
+  if (!BURP_URL) {
+    document.getElementById("bb-meta").textContent = "// FEED_URL not set";
+    return;
+  }
+  try {
+    const r = await fetch(BURP_URL, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    renderBurpboard(data);
+  } catch (err) {
+    document.getElementById("bb-meta").textContent = "// burpboard offline: " + (err.message || err);
+  }
+}
+function startBurpboardPolling() {
+  pollBurpboard();
+  if (BURP_URL) setInterval(pollBurpboard, BURP_POLL_MS);
+}
 function startFeedPolling(){
   pollFeed();
   if(FEED_URL) setInterval(pollFeed, FEED_POLL_MS);
@@ -1339,6 +1451,7 @@ tickClock();
   // pollFeed() pulls /feed and calls renderAllScanPanels(messages) which fills
   // SIGNAL STATUS, MARKET SCAN, SCAN ACTIVITY, FLAG HISTORY in addition to the raw INTEL FEED.
   startFeedPolling();
+  startBurpboardPolling();
 
   const updated = new Date().toLocaleString(undefined,{hour12:false});
   document.getElementById("updated").textContent = "last sync " + updated;

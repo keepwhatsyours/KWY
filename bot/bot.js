@@ -158,11 +158,128 @@ app.get('/feed', (_req, res) => {
   });
 });
 
+// ---------- BURPBOARD scraper (Telegram t.me/s/burpboard) ----------
+// Mirrors the latest "Best performing tokens | Last 24H" post into JSON.
+// Cached 5 minutes — Burpboard updates much less frequently than that.
+const BURP_URL = 'https://t.me/s/burpboard';
+const BURP_TTL_MS = 5 * 60 * 1000;
+let burpCache = null;
+let burpFetchedAt = 0;
+
+const RANK_EMOJI = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+
+function htmlToText(html) {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2|$1]')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+
+function parseBurpPost(html) {
+  const text = htmlToText(html);
+  if (!/Best performing tokens/i.test(text)) return null;
+
+  // header summary
+  const avg    = text.match(/Average gain:\s*`?([\d.]+x)`?/i)?.[1] || null;
+  const top10  = text.match(/Top 10:\s*`?([\d.]+x)`?/i)?.[1] || null;
+  const median = text.match(/Median:\s*`?([\d.]+%)`?/i)?.[1] || null;
+  const tracked = text.match(/Tokens tracked over the last 24H:\s*`?(\d+)`?/i)?.[1];
+
+  // split into per-rank slices
+  const tokens = [];
+  for (let i = 0; i < RANK_EMOJI.length; i++) {
+    const here = text.indexOf(RANK_EMOJI[i]);
+    if (here < 0) continue;
+    let next = text.length;
+    for (const e of RANK_EMOJI.slice(i + 1)) {
+      const nx = text.indexOf(e, here + 1);
+      if (nx > 0 && nx < next) next = nx;
+    }
+    const slice = text.slice(here, next);
+
+    // [SYMBOL|url] — first link in the slice is the token
+    const link = slice.match(/\[([^|\]]+)\|([^\]]+)\]/);
+    const entry   = slice.match(/@\s*`?([\d.]+[KMB]?)`?/i)?.[1] || null;
+    const current = slice.match(/➜\s*`?([\d.]+[KMB]?)`?/i)?.[1] || null;
+    const mult    = slice.match(/Δ\s*`?([\d.]+x)`?/i)?.[1] || null;
+    const chain   = slice.match(/`?\[(\w+)\]`?/)?.[1] || null;
+    const ath     = slice.match(/ATH:\s*`?([\d.]+[KMB]?)\s*((?:🥶|💀)?)`?/iu);
+
+    if (!link) continue;
+    tokens.push({
+      rank: i + 1,
+      symbol: link[1].trim(),
+      botUrl: link[2].trim(),
+      entryMcap: entry,
+      currentMcap: current,
+      multiplier: mult,
+      chain,
+      ath: ath?.[1] || null,
+      athStatus: ath?.[2] || '',
+    });
+  }
+
+  return {
+    summary: { avgGain: avg, top10, median, tracked: tracked ? Number(tracked) : null },
+    tokens,
+  };
+}
+
+async function fetchBurpboard() {
+  const r = await fetch(BURP_URL, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; KWY-Bot/0.1; +https://keepwhatsyours.ai)',
+      'Accept': 'text/html,application/xhtml+xml',
+    },
+  });
+  if (!r.ok) throw new Error('burpboard http ' + r.status);
+  const html = await r.text();
+
+  // Telegram's /s/ preview wraps each post in a div with class tgme_widget_message_text.
+  // Posts appear oldest-first; iterate from end to find the most recent matching.
+  const blocks = [...html.matchAll(/<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map(m => m[1]);
+  for (const b of [...blocks].reverse()) {
+    const parsed = parseBurpPost(b);
+    if (parsed?.tokens?.length) {
+      return { updated: new Date().toISOString(), source: BURP_URL, ...parsed };
+    }
+  }
+  throw new Error('no "Best performing tokens" post found');
+}
+
+async function getBurpboard() {
+  const now = Date.now();
+  if (burpCache && now - burpFetchedAt < BURP_TTL_MS) return burpCache;
+  try {
+    burpCache = await fetchBurpboard();
+    burpFetchedAt = now;
+    console.log(`[ok]  burpboard refreshed (${burpCache.tokens.length} tokens)`);
+  } catch (err) {
+    console.warn('[warn] burpboard fetch failed:', err.message);
+  }
+  return burpCache;
+}
+
+// warm the cache at boot; refresh in background every TTL
+getBurpboard();
+setInterval(() => getBurpboard(), BURP_TTL_MS);
+
+app.get('/burpboard', async (_req, res) => {
+  const data = await getBurpboard();
+  if (!data) return res.status(503).json({ error: 'burpboard unavailable' });
+  res.set('Cache-Control', 'public, max-age=60');
+  res.json(data);
+});
+
 app.get('/', (_req, res) => {
   res.type('text/plain').send(
     `KEEPWHATSYOURS.AI feed bot\n\n` +
-      `GET /feed    last ${MAX} messages from channel ${CHANNEL_ID}\n` +
-      `GET /health  status\n`
+      `GET /feed       last ${MAX} messages from channel ${CHANNEL_ID}\n` +
+      `GET /burpboard  latest "Best performing tokens | Last 24H" from t.me/burpboard\n` +
+      `GET /health     status\n`
   );
 });
 
