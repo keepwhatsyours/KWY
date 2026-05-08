@@ -16,3 +16,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.env.txt
+feed-snapshot.json
+*.bak

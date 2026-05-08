@@ -4,8 +4,6 @@ Daily AI-generated meme coin picks, with a live track record and a Discord-fed
 intel ticker. Hackerish green-on-black CRT vibe, single-file frontend, free
 hosting friendly.
 
-**Author:** keepwhatsyours@pm.me
-
 ```
    Open Claw  ──►  picks.json  ──►  index.html  ◄──  CoinGecko (live prices)
                                         ▲

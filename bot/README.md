@@ -4,8 +4,6 @@ Mirrors a single Discord channel into a JSON HTTP endpoint that the
 KEEPWHATSYOURS.AI website polls. Live updates: when someone posts in the
 channel, it shows up on the site within ~15 seconds.
 
-**Author:** keepwhatsyours@pm.me
-
 ```
    Discord channel  ──►  this bot  ──►  /feed (JSON)  ──►  index.html
 ```

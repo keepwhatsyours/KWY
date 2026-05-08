@@ -2,7 +2,6 @@
   "name": "kwy-discord-feed",
   "version": "0.1.0",
   "description": "Mirrors a Discord channel into a JSON feed for KEEPWHATSYOURS.AI",
-  "author": "keepwhatsyours@pm.me",
   "type": "module",
   "main": "bot.js",
   "scripts": {

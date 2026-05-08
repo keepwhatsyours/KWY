@@ -166,6 +166,73 @@
   /* chart */
   .chart-wrap{position:relative;height:300px}
 
+  /* market scan — coin cards grouped by tier */
+  .tier-section{margin-bottom:14px}
+  .tier-section:last-child{margin-bottom:0}
+  .tier-head{
+    display:flex;align-items:baseline;gap:10px;margin:6px 0 8px;
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--green-dim);
+    border-bottom:1px dashed rgba(0,255,65,.12);padding-bottom:6px;
+  }
+  .tier-head .badge{
+    padding:2px 8px;border-radius:2px;border:1px solid;font-weight:600;
+    text-shadow:0 0 6px currentColor;
+  }
+  .tier-head .badge.big{color:var(--green);border-color:var(--green-deep);background:rgba(0,255,65,.08)}
+  .tier-head .badge.mid{color:var(--amber);border-color:rgba(255,176,0,.45);background:rgba(255,176,0,.06)}
+  .tier-head .badge.low{color:#ff5577;border-color:rgba(255,85,119,.45);background:rgba(255,85,119,.06)}
+  .tier-head .when{color:var(--green-dim);font-size:10.5px;letter-spacing:.1em;margin-left:auto}
+
+  .coin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+  .coin{
+    border:1px solid var(--green-deep);background:rgba(0,255,65,.025);
+    border-radius:3px;padding:10px 12px;position:relative;
+    font-size:12px;
+  }
+  .coin.tier-big{border-left:3px solid var(--green);box-shadow:inset 2px 0 0 rgba(0,255,65,.12)}
+  .coin.tier-mid{border-left:3px solid var(--amber)}
+  .coin.tier-low{border-left:3px solid #ff5577}
+  .coin .row1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+  .coin .sym{font-size:16px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.4);letter-spacing:.04em}
+  .coin .name{color:var(--green-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
+  .coin .score{
+    font-size:11px;font-weight:600;padding:2px 6px;border-radius:2px;
+    color:var(--bg);
+  }
+  .coin .score.s-hi{background:var(--green);box-shadow:0 0 8px rgba(0,255,65,.4)}
+  .coin .score.s-md{background:var(--amber)}
+  .coin .score.s-lo{background:#ff5577}
+  .coin .kvs{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:6px}
+  .coin .kv{display:flex;justify-content:space-between;gap:6px;font-size:11.5px}
+  .coin .kv .k{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em;font-size:10px}
+  .coin .kv .v{color:#cdeacd;font-variant-numeric:tabular-nums}
+  .coin .kv .v.pos{color:var(--green)}
+  .coin .kv .v.neg{color:#ff5577}
+  .coin .chg{font-size:11px;color:var(--green-dim);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+  .coin .chg span{font-variant-numeric:tabular-nums}
+  .coin .chg .pos{color:var(--green)}
+  .coin .chg .neg{color:#ff5577}
+  .coin .ca{
+    margin-top:6px;font-size:10.5px;color:var(--green-dim);
+    display:flex;align-items:center;gap:6px;
+  }
+  .coin .ca code{
+    background:rgba(0,255,65,.05);color:#9ad99a;padding:1px 5px;border-radius:2px;
+    font-size:10px;border:1px solid rgba(0,255,65,.1);
+    cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .coin .ca code:hover{background:rgba(0,255,65,.1);color:var(--green)}
+  .coin .risk{
+    margin-top:6px;font-size:10.5px;color:#9ad99a;
+    border-top:1px dashed rgba(0,255,65,.1);padding-top:5px;
+  }
+
+  /* tier badge for table rows */
+  .tag.tier-big{color:var(--green);border-color:var(--green-deep)}
+  .tag.tier-mid{color:var(--amber);border-color:rgba(255,176,0,.45)}
+  .tag.tier-low{color:#ff5577;border-color:rgba(255,85,119,.45)}
+
   /* intel feed */
   .feed{max-height:420px;overflow-y:auto;padding-right:6px;font-size:12.5px}
   .feed::-webkit-scrollbar{width:6px}
@@ -244,16 +311,16 @@
   </div>
   <div class="tagline">// daily <b>ai-generated</b> meme coin ops &nbsp;·&nbsp; live <b>p&amp;l</b> &nbsp;·&nbsp; no hopium <b>only data</b><span class="cursor">&nbsp;</span></div>
 
-  <!-- STATS -->
+  <!-- SIGNAL STATUS -->
   <div class="panel">
     <h2>SIGNAL STATUS <span class="meta" id="updated">syncing…</span></h2>
     <div class="stats" id="stats"></div>
   </div>
 
-  <!-- TODAY'S OPS -->
+  <!-- MARKET SCAN — latest Big/Mid/Low Cap signals from Discord -->
   <div class="panel">
-    <h2>ACTIVE OPS <span class="meta" id="active-meta">open positions</span></h2>
-    <div class="picks" id="active-picks"></div>
+    <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
+    <div id="market-scan"></div>
   </div>
 
   <!-- INTEL FEED (DISCORD) -->
@@ -262,27 +329,28 @@
     <div id="feed" class="feed"></div>
   </div>
 
-  <!-- CUMULATIVE P&L -->
+  <!-- SCAN ACTIVITY — coins flagged per day -->
   <div class="panel">
-    <h2>CUMULATIVE P&amp;L <span class="meta">usd / since inception</span></h2>
+    <h2>SCAN ACTIVITY <span class="meta">coins flagged per day · by tier</span></h2>
     <div class="chart-wrap"><canvas id="pnl-chart"></canvas></div>
   </div>
 
-  <!-- TRACK RECORD -->
+  <!-- FLAG HISTORY — every coin flag from Discord, newest first -->
   <div class="panel">
-    <h2>TRACK RECORD <span class="meta" id="tr-meta"></span></h2>
+    <h2>FLAG HISTORY <span class="meta" id="tr-meta"></span></h2>
     <div style="overflow-x:auto">
       <table id="track">
         <thead>
           <tr>
-            <th>DATE</th>
+            <th>TIME</th>
+            <th>TIER</th>
             <th>SYM</th>
-            <th class="num">ENTRY</th>
-            <th class="num">EXIT / LIVE</th>
-            <th class="num">% RET</th>
-            <th class="num">P&amp;L USD</th>
-            <th>STATUS</th>
-            <th>THESIS</th>
+            <th class="num">PRICE</th>
+            <th class="num">MCAP</th>
+            <th class="num">VOL 24H</th>
+            <th class="num">SCORE</th>
+            <th class="num">DEGENS</th>
+            <th>RISK</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -593,6 +661,262 @@ function renderChart(rows, startingCapital){
   });
 }
 
+/* ---------- MARKET SCAN (parse Bubba Bot embeds) ---------- */
+
+// strip leading emoji + whitespace from field names: "💰 Price" → "Price"
+const cleanFieldName = s => String(s||"").replace(/^[\s\W_]+/u,"").trim();
+
+// take a number out of "$0.0046333" / "$4.63M" / "8,676" / "54" / "36/100"
+function parseNumber(v) {
+  if (v == null) return null;
+  const s = String(v).replace(/[`*]/g,"").trim();
+  // handle X/100 → X
+  const ratio = s.match(/^([\d.,]+)\s*\/\s*\d+$/);
+  if (ratio) return parseFloat(ratio[1].replace(/,/g,""));
+  const m = s.match(/-?[\d,.]+/);
+  if (!m) return null;
+  let n = parseFloat(m[0].replace(/,/g,""));
+  if (/\bK\b|K\s*$/i.test(s)) n *= 1e3;
+  else if (/\bM\b|M\s*$/i.test(s)) n *= 1e6;
+  else if (/\bB\b|B\s*$/i.test(s)) n *= 1e9;
+  return n;
+}
+function parseChange(v) {
+  // "1m: `+0.0%`  |  5m: `-4.9%`  |  1h: `+7.8%`"
+  if (!v) return {};
+  const out = {};
+  for (const m of String(v).matchAll(/(1m|5m|1h):\s*`?([+-]?[\d.]+)%/g)) out[m[1]] = parseFloat(m[2]);
+  return out;
+}
+
+function parseBubbaPost(msg) {
+  if (!msg.embeds || msg.embeds.length < 2) return null;
+  const header = msg.embeds[0];
+  const tierMatch = (header.title||"").match(/(Big|Mid|Low)\s+Cap/i);
+  if (!tierMatch) return null;
+  const tier = tierMatch[1].toLowerCase();
+  const coins = msg.embeds.slice(1).map(e => {
+    const t = (e.title||"").trim();
+    const titleMatch = t.match(/^(.+?)\s+[—\-–]\s+(.+)$/);
+    const symbol = titleMatch ? titleMatch[1].trim() : t;
+    const name   = titleMatch ? titleMatch[2].trim() : "";
+    const fields = {};
+    for (const f of (e.fields||[])) {
+      fields[cleanFieldName(f.name)] = (f.value||"").replace(/`/g,"");
+    }
+    return {
+      symbol, name, color: e.color,
+      contract:  fields["Contract"] || null,
+      price:     parseNumber(fields["Price"]),
+      mcap:      parseNumber(fields["Market Cap"]),
+      liquidity: parseNumber(fields["Liquidity"]),
+      volume24h: parseNumber(fields["Volume (24h)"]),
+      holders:   parseNumber(fields["Holders"]),
+      score:     parseNumber(fields["Score"]),
+      degens:    parseNumber(fields["Smart Degens"]),
+      kols:      parseNumber(fields["KOLs"]),
+      change:    parseChange(fields["Price Change"]),
+      swaps:     fields["Swaps"] || null,
+      health:    fields["Wallet Health"] || null,
+      risk:      fields["Dev / Risk"] || fields["Dev/Risk"] || null,
+      raw:       fields,
+    };
+  });
+  return { id: msg.id, ts: msg.timestamp, tier, coins };
+}
+
+function buildMarketData(messages) {
+  const posts = messages.map(parseBubbaPost).filter(Boolean);
+  // posts come newest-first from /feed; keep that order
+
+  const latestByTier = {};
+  for (const p of posts) if (!latestByTier[p.tier]) latestByTier[p.tier] = p;
+
+  const flagCounts = new Map();
+  const flagsBySymbol = new Map();
+  let totalFlags = 0;
+  for (const p of posts) {
+    for (const c of p.coins) {
+      flagCounts.set(c.symbol, (flagCounts.get(c.symbol)||0)+1);
+      if (!flagsBySymbol.has(c.symbol)) flagsBySymbol.set(c.symbol, []);
+      flagsBySymbol.get(c.symbol).push({ ts: p.ts, tier: p.tier, ...c });
+      totalFlags++;
+    }
+  }
+  const topFlagged = [...flagCounts.entries()].sort((a,b)=>b[1]-a[1]);
+  const allScores = posts.flatMap(p=>p.coins.map(c=>c.score)).filter(s=>s!=null);
+  const avgScore = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
+
+  return { posts, latestByTier, flagCounts, flagsBySymbol, topFlagged, totalFlags, avgScore, totalScans: posts.length };
+}
+
+const tierLabel = { big: "BIG CAP", mid: "MID CAP", low: "LOW CAP" };
+const tierBlurb = { big: "$1M – $10M MC · established", mid: "$150K – $1M MC · momentum", low: "$5K – $150K MC · early runners" };
+
+const fmtCompact = n => {
+  if (n == null || isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return "$" + (n/1e9).toFixed(2) + "B";
+  if (abs >= 1e6) return "$" + (n/1e6).toFixed(2) + "M";
+  if (abs >= 1e3) return "$" + (n/1e3).toFixed(1) + "K";
+  if (abs >= 1)   return "$" + n.toFixed(2);
+  if (abs >= 0.0001) return "$" + n.toFixed(6);
+  return "$" + n.toExponential(2);
+};
+const fmtCount = n => n == null || isNaN(n) ? "—" : n.toLocaleString();
+const fmtAgo = iso => {
+  const sec = (Date.now() - new Date(iso).getTime())/1000;
+  if (sec < 90) return Math.round(sec)+"s ago";
+  if (sec < 3600) return Math.round(sec/60)+"m ago";
+  if (sec < 86400) return Math.round(sec/3600)+"h ago";
+  return Math.round(sec/86400)+"d ago";
+};
+const scoreClass = s => s == null ? "" : s >= 70 ? "s-hi" : s >= 40 ? "s-md" : "s-lo";
+const truncCA = ca => !ca ? "" : ca.length > 14 ? ca.slice(0,4) + "…" + ca.slice(-4) : ca;
+
+function renderScanStats(md) {
+  const top3 = md.topFlagged.slice(0,3).map(([sym,n])=>`${sym}<span style="color:var(--green-dim)">·${n}</span>`).join("&nbsp;&nbsp;") || "—";
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="k">Total Scans</div><div class="v">${md.totalScans}</div></div>
+    <div class="stat"><div class="k">Coins Flagged</div><div class="v">${md.totalFlags}</div></div>
+    <div class="stat"><div class="k">Unique Tickers</div><div class="v">${md.flagCounts.size}</div></div>
+    <div class="stat"><div class="k">Avg Score</div><div class="v">${md.avgScore.toFixed(0)}<span style="color:var(--green-dim);font-size:13px">/100</span></div></div>
+    <div class="stat" style="grid-column:span 2"><div class="k">Most Flagged</div><div class="v" style="font-size:14px">${top3}</div></div>
+  `;
+}
+
+function coinCard(c, tier) {
+  const ch1m = c.change["1m"], ch5m = c.change["5m"], ch1h = c.change["1h"];
+  const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
+  return `
+    <div class="coin tier-${tier}">
+      <div class="row1">
+        <div>
+          <div class="sym">$${escapeHTML(c.symbol)}</div>
+          ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
+        </div>
+        ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
+      </div>
+      <div class="kvs">
+        <div class="kv"><span class="k">price</span> <span class="v">${fmtCompact(c.price)}</span></div>
+        <div class="kv"><span class="k">mcap</span>  <span class="v">${fmtCompact(c.mcap)}</span></div>
+        <div class="kv"><span class="k">liq</span>   <span class="v">${fmtCompact(c.liquidity)}</span></div>
+        <div class="kv"><span class="k">vol 24h</span> <span class="v">${fmtCompact(c.volume24h)}</span></div>
+        <div class="kv"><span class="k">degens</span> <span class="v">${fmtCount(c.degens)}</span></div>
+        <div class="kv"><span class="k">kols</span>   <span class="v">${fmtCount(c.kols)}</span></div>
+        <div class="kv"><span class="k">holders</span><span class="v">${fmtCount(c.holders)}</span></div>
+        ${c.swaps ? `<div class="kv"><span class="k">swaps</span><span class="v" style="font-size:10.5px">${escapeHTML(c.swaps.replace(/\s+/g," "))}</span></div>` : ""}
+      </div>
+      <div class="chg">${chSpan("1m",ch1m)} ${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)}</div>
+      ${c.contract ? `<div class="ca">CA <code title="${escapeHTML(c.contract)}" onclick="navigator.clipboard.writeText('${escapeHTML(c.contract)}'); this.textContent='copied'; setTimeout(()=>this.textContent='${escapeHTML(truncCA(c.contract))}', 1200)">${escapeHTML(truncCA(c.contract))}</code></div>` : ""}
+      ${c.risk ? `<div class="risk">${escapeHTML(c.risk)}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderMarketScan(md) {
+  const tiers = ["big","mid","low"];
+  const sections = tiers.map(t => {
+    const post = md.latestByTier[t];
+    if (!post) return "";
+    return `
+      <div class="tier-section">
+        <div class="tier-head">
+          <span class="badge ${t}">${tierLabel[t]}</span>
+          <span>${tierBlurb[t]}</span>
+          <span class="when">${fmtAgo(post.ts)} · ${post.coins.length} coin${post.coins.length===1?"":"s"}</span>
+        </div>
+        <div class="coin-grid">${post.coins.map(c => coinCard(c, t)).join("")}</div>
+      </div>
+    `;
+  }).join("");
+  document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
+  document.getElementById("scan-meta").textContent =
+    `${md.totalScans} scans · ${md.totalFlags} flags · ${md.flagCounts.size} unique`;
+}
+
+function renderFlagHistory(md) {
+  // flatten all flags newest-first
+  const rows = [];
+  for (const p of md.posts) for (const c of p.coins) rows.push({ ts: p.ts, tier: p.tier, ...c });
+  // already newest-first because posts came newest-first
+  const tbody = document.querySelector("#track tbody");
+  tbody.innerHTML = rows.slice(0, 80).map(r => {
+    const ts = new Date(r.ts);
+    const t = ts.toISOString().slice(5,16).replace("T"," ");
+    const sc = r.score == null ? "—" : Math.round(r.score);
+    const scCls = scoreClass(r.score);
+    return `
+      <tr>
+        <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${t}</td>
+        <td><span class="tag tier-${r.tier}">${tierLabel[r.tier]}</span></td>
+        <td><b>$${escapeHTML(r.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(r.name||"")}</div></td>
+        <td class="num">${fmtCompact(r.price)}</td>
+        <td class="num">${fmtCompact(r.mcap)}</td>
+        <td class="num">${fmtCompact(r.volume24h)}</td>
+        <td class="num"><span class="${scCls?"score "+scCls:""}" style="display:inline-block;padding:1px 6px;border-radius:2px;font-size:11px;color:${scCls?"var(--bg)":"var(--green)"}">${sc}</span></td>
+        <td class="num">${fmtCount(r.degens)}</td>
+        <td style="color:#9ad99a;font-size:11px">${escapeHTML((r.risk||"").slice(0,38))}</td>
+      </tr>
+    `;
+  }).join("");
+  document.getElementById("tr-meta").textContent = `${rows.length} flags logged · showing newest 80`;
+}
+
+let activityChart = null;
+function renderActivityChart(md) {
+  // bucket by day + tier
+  const buckets = {}; // { "MM-DD": { big: n, mid: n, low: n } }
+  for (const p of md.posts) {
+    const day = p.ts.slice(5,10); // MM-DD
+    if (!buckets[day]) buckets[day] = { big: 0, mid: 0, low: 0 };
+    buckets[day][p.tier] += p.coins.length;
+  }
+  const days = Object.keys(buckets).sort();
+  const big = days.map(d => buckets[d].big);
+  const mid = days.map(d => buckets[d].mid);
+  const low = days.map(d => buckets[d].low);
+
+  const ctx = document.getElementById("pnl-chart");
+  Chart.defaults.color = "#1f9f3a";
+  Chart.defaults.font.family = "JetBrains Mono, monospace";
+  if (activityChart) { activityChart.destroy(); activityChart = null; }
+  activityChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: days,
+      datasets: [
+        { label: "Big",  data: big, backgroundColor: "rgba(0,255,65,.7)",   borderColor: "var(--green)", stack: "x" },
+        { label: "Mid",  data: mid, backgroundColor: "rgba(255,176,0,.7)",  borderColor: "var(--amber)", stack: "x" },
+        { label: "Low",  data: low, backgroundColor: "rgba(255,85,119,.7)", borderColor: "#ff5577",      stack: "x" },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true, labels:{color:"#1f9f3a", font:{size:11}}},
+        tooltip:{
+          backgroundColor:"#0a0e0a", borderColor:"#1f9f3a", borderWidth:1,
+          titleColor:"#00ff41", bodyColor:"#9ad99a",
+        }
+      },
+      scales:{
+        x:{ stacked:true, grid:{color:"rgba(0,255,65,.07)"}, ticks:{color:"#1f9f3a"} },
+        y:{ stacked:true, grid:{color:"rgba(0,255,65,.07)"}, ticks:{color:"#1f9f3a"} },
+      },
+      animation:{duration:600, easing:"easeOutCubic"},
+    }
+  });
+}
+
+function renderAllScanPanels(messages) {
+  const md = buildMarketData(messages);
+  renderScanStats(md);
+  renderMarketScan(md);
+  renderFlagHistory(md);
+  renderActivityChart(md);
+}
+
 /* ---------- INTEL FEED (DISCORD) ---------- */
 const escapeHTML = s => String(s ?? "").replace(/[&<>"']/g, c => ({
   "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -707,6 +1031,7 @@ async function pollFeed(){
     const data = await r.json();
     const msgs = Array.isArray(data) ? data : (data.messages || []);
     renderFeed(msgs);
+    renderAllScanPanels(msgs);
   }catch(err){
     renderFeedError(err.message || String(err));
   }
@@ -729,20 +1054,10 @@ tickClock();
 /* ---------- MAIN ---------- */
 (async function main(){
   runBoot(); // don't await; runs in parallel
-  const data = await loadPicks();
-  const picks = data.picks || [];
-  const startingCapital = data.starting_capital_usd ?? 10000;
 
-  const ids = [...new Set(picks.map(p=>p.coingecko_id).filter(Boolean))];
-  const prices = await fetchLivePrices(ids);
-
-  const enriched = enrich(picks, prices);
-  const stats    = computeStats(enriched, startingCapital);
-
-  renderStats(stats, startingCapital);
-  renderActivePicks(enriched.filter(p=>p.status==="open"));
-  renderChart(enriched, startingCapital);
-  renderTable(enriched);
+  // The site is now driven entirely by the Discord feed (Bubba Bot's market scans).
+  // pollFeed() pulls /feed and calls renderAllScanPanels(messages) which fills
+  // SIGNAL STATUS, MARKET SCAN, SCAN ACTIVITY, FLAG HISTORY in addition to the raw INTEL FEED.
   startFeedPolling();
 
   const updated = new Date().toLocaleString(undefined,{hour12:false});

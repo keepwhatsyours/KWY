@@ -68,6 +68,15 @@ function shape(msg) {
       title: e.title ?? null,
       description: e.description ?? null,
       url: e.url ?? null,
+      color: e.color ?? null,
+      thumbnail: e.thumbnail?.url ?? null,
+      footer: e.footer?.text ?? null,
+      author: e.author?.name ?? null,
+      fields: (e.fields ?? []).map((f) => ({
+        name: f.name,
+        value: f.value,
+        inline: !!f.inline,
+      })),
     })),
   };
 }
