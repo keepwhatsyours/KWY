@@ -260,15 +260,13 @@
     border:1px solid var(--green-deep);background:rgba(0,255,65,.025);
     border-radius:3px;padding:10px 12px;position:relative;
     display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
-    color:inherit;text-decoration:none;cursor:pointer;
-    transition:background .15s, border-color .15s, transform .15s;
   }
-  a.bb-coin:hover{
-    background:rgba(0,255,65,.07);border-color:var(--green);
-    transform:translateY(-1px);
-    box-shadow:0 0 14px rgba(0,255,65,.15);
+  .bb-coin .copy-ca{
+    cursor:pointer;color:var(--green-dim);
+    border-bottom:1px dashed var(--green-deep);
+    transition:color .15s, border-color .15s;
   }
-  a.bb-coin:active{transform:translateY(0)}
+  .bb-coin .copy-ca:hover{color:var(--green);border-color:var(--green)}
   .bb-coin .rank{
     font-size:18px;font-weight:700;color:var(--green);
     text-shadow:0 0 8px rgba(0,255,65,.4);
@@ -481,7 +479,7 @@
 // Paste your deployed Discord-feed bot URL here, e.g.:
 //   "https://kwy-feed.up.railway.app/feed"
 // Leave blank to show the offline placeholder. See bot/README.md for setup.
-const FEED_URL = "https://feed.keepwhatsyours.ai/feed";
+const FEED_URL = "https://kwy.onrender.com/feed";
 const FEED_POLL_MS = 15000;
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
@@ -1395,13 +1393,25 @@ function renderBurpboard(data) {
     ${s.tracked ? `<span class="pill">tracked: <b>${s.tracked}</b></span>` : ""}
   `;
 
+  // Extract a copyable address from Burpboard's botUrl `?start=...` deeplink.
+  // For EVM chains the start param may have a trailing suffix; trim to 0x+40 hex.
+  const copyableAddress = (t) => {
+    if (!t.botUrl) return null;
+    const m = t.botUrl.match(/[?&]start=([^&]+)/);
+    if (!m) return null;
+    let addr = decodeURIComponent(m[1]);
+    if (/^(eth|bsc|base|arbitrum|polygon|avalanche|optimism)$/i.test(t.chain || "") &&
+        addr.startsWith("0x") && addr.length > 42) {
+      addr = addr.slice(0, 42);
+    }
+    return addr;
+  };
+
   wrap.innerHTML = `<div class="bb-grid">${
     data.tokens.map(t => {
-      // Dexscreener search by symbol — reliable across chains; Burpboard's
-      // botUrl deeplink isn't a clean contract address.
-      const dexUrl = `https://dexscreener.com/search?q=${encodeURIComponent(t.symbol)}`;
+      const ca = copyableAddress(t);
       return `
-        <a class="bb-coin" href="${escapeHTML(dexUrl)}" target="_blank" rel="noopener" title="open ${escapeHTML(t.symbol)} on Dexscreener">
+        <div class="bb-coin">
           <div class="rank ${rankClass(t.rank)}">${rankLabel(t.rank)}</div>
           <div class="body">
             <div class="sym">$${escapeHTML(t.symbol)}${t.athStatus ? ` <span title="ATH cool-off">${escapeHTML(t.athStatus)}</span>`:""}</div>
@@ -1413,11 +1423,12 @@ function renderBurpboard(data) {
             <div class="meta">
               ${t.chain ? `<span class="chain ${escapeHTML(t.chain)}">${escapeHTML(t.chain)}</span>` : ""}
               ${t.ath ? `<span>ATH ${escapeHTML(t.ath)} ${escapeHTML(t.athStatus||"")}</span>` : ""}
-              <span style="color:var(--green-dim)">dexscreener ↗</span>
+              ${ca ? `<span class="copy-ca" data-ca="${escapeHTML(ca)}" title="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.textContent;el.textContent='copied ✓';setTimeout(function(){el.textContent=o;},1100);})(this)">copy CA</span>` : ""}
+              ${t.botUrl ? `<a href="${escapeHTML(t.botUrl)}" target="_blank" rel="noopener" style="color:var(--green-dim)">burpbot ↗</a>` : ""}
             </div>
           </div>
           <div class="mult">${escapeHTML(t.multiplier||"—")}</div>
-        </a>
+        </div>
       `;
     }).join("")
   }</div>`;
