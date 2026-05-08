@@ -227,6 +227,37 @@ function parseBurpPost(html) {
   };
 }
 
+// Resolve a Burpboard token's canonical Dexscreener chart URL by symbol+chain.
+// Picks the highest-liquidity pair on the matching chain.
+const DEX_CHAIN = { sol:'solana', eth:'ethereum', bsc:'bsc', base:'base',
+                    arbitrum:'arbitrum', polygon:'polygon', avalanche:'avalanche', optimism:'optimism' };
+async function resolveChartUrl(token) {
+  if (!token.symbol) return null;
+  try {
+    const r = await fetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(token.symbol)}`,
+      { headers: { 'User-Agent': 'KWY-Bot/0.1' } }
+    );
+    if (!r.ok) return null;
+    const data = await r.json();
+    const pairs = Array.isArray(data.pairs) ? data.pairs : [];
+    if (!pairs.length) return null;
+    const want = DEX_CHAIN[String(token.chain || '').toLowerCase()];
+    let candidates = want ? pairs.filter(p => p.chainId === want) : pairs;
+    if (!candidates.length) candidates = pairs;
+    // also try to match the symbol exactly to avoid e.g. "FOO" matching "FOOBAR"
+    const exact = candidates.filter(p =>
+      String(p.baseToken?.symbol || '').toUpperCase() === token.symbol.toUpperCase()
+    );
+    if (exact.length) candidates = exact;
+    candidates.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+    return candidates[0]?.url || null;
+  } catch (err) {
+    console.warn('[warn] resolveChartUrl', token.symbol, err.message);
+    return null;
+  }
+}
+
 async function fetchBurpboard() {
   const r = await fetch(BURP_URL, {
     headers: {
@@ -244,6 +275,10 @@ async function fetchBurpboard() {
   for (const b of [...blocks].reverse()) {
     const parsed = parseBurpPost(b);
     if (parsed?.tokens?.length) {
+      // Resolve canonical Dexscreener chart URLs in parallel.
+      await Promise.all(parsed.tokens.map(async (t) => {
+        t.chartUrl = await resolveChartUrl(t);
+      }));
       return { updated: new Date().toISOString(), source: BURP_URL, ...parsed };
     }
   }

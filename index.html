@@ -1451,13 +1451,14 @@ function renderBurpboard(data) {
     return addr;
   };
 
-  // Build a Dexscreener URL for this token's chart. Uses direct token URL on
-  // EVM chains where we have a clean 0x address; falls back to symbol search
-  // on Solana (Burpboard lowercases the address so direct linking is unreliable).
+  // Build a Dexscreener URL for this token's chart.
+  // Prefer the bot-resolved chartUrl (canonical via Dexscreener search API).
+  // Fall back to a direct token URL on EVM chains, or symbol search.
   const chainSlug = { sol:"solana", eth:"ethereum", bsc:"bsc", base:"base",
                        arbitrum:"arbitrum", polygon:"polygon", avalanche:"avalanche",
                        optimism:"optimism" };
   const dexscreenerUrl = (t) => {
+    if (t.chartUrl) return t.chartUrl;
     const slug = chainSlug[String(t.chain || "").toLowerCase()];
     const ca = copyableAddress(t);
     if (slug && slug !== "solana" && ca && /^0x[a-f0-9]{40}$/i.test(ca)) {
