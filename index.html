@@ -1451,6 +1451,21 @@ function renderBurpboard(data) {
     return addr;
   };
 
+  // Build a Dexscreener URL for this token's chart. Uses direct token URL on
+  // EVM chains where we have a clean 0x address; falls back to symbol search
+  // on Solana (Burpboard lowercases the address so direct linking is unreliable).
+  const chainSlug = { sol:"solana", eth:"ethereum", bsc:"bsc", base:"base",
+                       arbitrum:"arbitrum", polygon:"polygon", avalanche:"avalanche",
+                       optimism:"optimism" };
+  const dexscreenerUrl = (t) => {
+    const slug = chainSlug[String(t.chain || "").toLowerCase()];
+    const ca = copyableAddress(t);
+    if (slug && slug !== "solana" && ca && /^0x[a-f0-9]{40}$/i.test(ca)) {
+      return `https://dexscreener.com/${slug}/${ca}`;
+    }
+    return `https://dexscreener.com/search?q=${encodeURIComponent(t.symbol)}`;
+  };
+
   wrap.innerHTML = `<div class="bb-grid">${
     data.tokens.map(t => {
       const ca = copyableAddress(t);
@@ -1468,7 +1483,7 @@ function renderBurpboard(data) {
               ${t.chain ? `<span class="chain ${escapeHTML(t.chain)}">${escapeHTML(t.chain)}</span>` : ""}
               ${t.ath ? `<span>ATH ${escapeHTML(t.ath)} ${escapeHTML(t.athStatus||"")}</span>` : ""}
               ${ca ? `<span class="copy-ca" data-ca="${escapeHTML(ca)}" title="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.textContent;el.textContent='copied ✓';setTimeout(function(){el.textContent=o;},1100);})(this)">copy CA</span>` : ""}
-              ${t.botUrl ? `<a href="${escapeHTML(t.botUrl)}" target="_blank" rel="noopener" style="color:var(--green-dim)">burpbot ↗</a>` : ""}
+              <a href="${escapeHTML(dexscreenerUrl(t))}" target="_blank" rel="noopener" style="color:var(--green-dim)">chart ↗</a>
             </div>
           </div>
           <div class="mult">${escapeHTML(t.multiplier||"—")}</div>
