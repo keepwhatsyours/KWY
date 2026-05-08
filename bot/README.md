@@ -72,7 +72,27 @@ matter; the bot's do, and `*` is set in `.env.example`).
 
 The bot has to stay online to receive new messages. Pick one:
 
-### Railway (easiest)
+### Render (free, no card required)
+
+1. Go to <https://dashboard.render.com> → **New → Web Service**.
+2. Connect your GitHub repo (`keepwhatsyours/KWY`).
+3. Set:
+   - **Name:** `kwy-feed`
+   - **Root Directory:** `bot`
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+4. Add **Environment Variables**:
+   - `DISCORD_TOKEN` — your bot token
+   - `CHANNEL_ID` — the channel to mirror
+   - `ALLOWED_ORIGIN` — your site's origin (or `*` while testing)
+5. Click **Create Web Service**.
+6. Once deployed, Render gives you a URL like `https://kwy-feed.onrender.com`.
+   Your feed lives at `/feed` on that URL.
+7. Copy the **Deploy Hook** URL from Render dashboard → Settings.
+   Add it to your repo secrets as `RENDER_DEPLOY_HOOK`.
+   Future pushes to `main` will auto-deploy.
+
+### Railway
 
 1. Push this repo to GitHub.
 2. <https://railway.app/new> → **Deploy from GitHub** → pick the repo.
@@ -81,18 +101,7 @@ The bot has to stay online to receive new messages. Pick one:
 5. Railway gives you a public URL like `https://kwy-feed.up.railway.app`.
    Your feed lives at `/feed` on that URL.
 
-### Fly.io
-
-```sh
-cd bot
-fly launch          # answer yes to "Would you like to deploy now?"
-fly secrets set DISCORD_TOKEN=... CHANNEL_ID=... ALLOWED_ORIGIN=https://yoursite
-```
-
-### Render / Heroku-likes
-
-Use a **Web Service** (so the HTTP port is exposed). Set the build command to
-`npm install`, start command to `npm start`, and the same env vars.
+### Fly.io (requires credit card)
 
 ## 6. Connect the site
 
