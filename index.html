@@ -228,6 +228,24 @@
     border-top:1px dashed rgba(0,255,65,.1);padding-top:5px;
   }
 
+  /* live data indicators on coin cards */
+  .live-dot{
+    display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:var(--green);box-shadow:0 0 6px var(--green);
+    margin-left:4px;vertical-align:middle;animation:pulse 1.6s infinite;
+  }
+  .coin .delta{
+    font-size:10px;margin-left:4px;font-weight:600;
+    padding:1px 4px;border-radius:2px;
+  }
+  .coin .delta.pos{color:var(--green);background:rgba(0,255,65,.08)}
+  .coin .delta.neg{color:#ff5577;background:rgba(255,85,119,.08)}
+  .coin .called{
+    margin-top:6px;font-size:10px;color:var(--green-dim);
+    border-top:1px dashed rgba(0,255,65,.1);padding-top:5px;
+    text-transform:uppercase;letter-spacing:.06em;
+  }
+
   /* winners & losers summary strip */
   .wl-summary{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--green-dim);text-transform:uppercase;letter-spacing:.12em}
   .wl-summary .pill{padding:4px 10px;border:1px solid var(--green-deep);border-radius:2px;background:rgba(0,255,65,.025)}
@@ -674,6 +692,81 @@ function renderChart(rows, startingCapital){
   });
 }
 
+/* ---------- DEXSCREENER LIVE PRICES ----------
+   Free public API, CORS=*, supports up to 30 addresses per call. */
+const DEXSCREENER_CHAIN = "solana"; // Bubba Bot tracks Solana coins
+
+async function fetchDexscreenerData(addresses) {
+  const result = new Map();
+  if (!addresses.length) return result;
+  // Dexscreener allows up to 30 addresses per request; batch.
+  for (let i = 0; i < addresses.length; i += 30) {
+    const chunk = addresses.slice(i, i + 30);
+    try {
+      const url = `https://api.dexscreener.com/tokens/v1/${DEXSCREENER_CHAIN}/${chunk.join(",")}`;
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) { console.warn("dexscreener", r.status); continue; }
+      const arr = await r.json();
+      // arr is an array of pair objects (one or more pairs per token).
+      for (const pair of arr) {
+        const addr = pair?.baseToken?.address;
+        if (!addr) continue;
+        // Keep only the highest-liquidity pair per token.
+        const prev = result.get(addr);
+        const liq = pair.liquidity?.usd ?? 0;
+        if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+      }
+    } catch (err) {
+      console.warn("dexscreener fetch err:", err);
+    }
+  }
+  return result;
+}
+
+function dexToLive(pair) {
+  if (!pair) return null;
+  return {
+    price:     pair.priceUsd != null ? parseFloat(pair.priceUsd) : null,
+    mcap:      pair.marketCap ?? pair.fdv ?? null,
+    liquidity: pair.liquidity?.usd ?? null,
+    volume24h: pair.volume?.h24 ?? null,
+    change: {
+      "5m": pair.priceChange?.m5 ?? null,
+      "1h": pair.priceChange?.h1 ?? null,
+      "24h": pair.priceChange?.h24 ?? null,
+    },
+    dex: pair.dexId ?? null,
+    url: pair.url ?? null,
+    pairCreatedAt: pair.pairCreatedAt ?? null,
+  };
+}
+
+// mutate md.posts coins in place: attach `.live` from dexscreener; also store
+// md.live as a global Map<address, livePair> for any other consumers.
+async function enrichWithLive(md) {
+  const addresses = [];
+  const seen = new Set();
+  for (const post of md.posts) {
+    for (const coin of post.coins) {
+      if (coin.contract && !seen.has(coin.contract)) {
+        seen.add(coin.contract);
+        addresses.push(coin.contract);
+      }
+    }
+  }
+  const pairs = await fetchDexscreenerData(addresses);
+  md.live = pairs;
+
+  for (const post of md.posts) {
+    for (const coin of post.coins) {
+      const pair = pairs.get(coin.contract);
+      if (pair) coin.live = dexToLive(pair);
+    }
+  }
+  // also tag latestByTier coins (same objects, but make sure)
+  return md;
+}
+
 /* ---------- MARKET SCAN (parse Bubba Bot embeds) ---------- */
 
 // strip leading emoji + whitespace from field names: "💰 Price" → "Price"
@@ -799,29 +892,52 @@ function renderScanStats(md) {
 }
 
 function coinCard(c, tier) {
-  const ch1m = c.change["1m"], ch5m = c.change["5m"], ch1h = c.change["1h"];
+  // Prefer live data when available; fall back to Bubba Bot snapshot.
+  const live = c.live;
+  const price = live?.price ?? c.price;
+  const mcap  = live?.mcap  ?? c.mcap;
+  const liq   = live?.liquidity ?? c.liquidity;
+  const vol   = live?.volume24h ?? c.volume24h;
+  const isLive = !!live;
+
+  // change since called: only meaningful when we have live + snapshot mcap
+  const calledMcap  = c.mcap;
+  const calledPrice = c.price;
+  const mcapDelta   = (live?.mcap != null && calledMcap)
+                        ? ((live.mcap - calledMcap) / calledMcap) * 100 : null;
+  const priceDelta  = (live?.price != null && calledPrice)
+                        ? ((live.price - calledPrice) / calledPrice) * 100 : null;
+  const deltaSpan = v => v == null ? "" :
+    `<span class="delta ${v>=0?"pos":"neg"}">${v>=0?"▲ +":"▼ "}${Math.abs(v).toFixed(1)}%</span>`;
+
+  // short-term price changes — prefer live (5m/1h) over snapshot
+  const ch5m = live?.change?.["5m"] ?? c.change["5m"];
+  const ch1h = live?.change?.["1h"] ?? c.change["1h"];
+  const ch24 = live?.change?.["24h"];
   const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
+
   return `
-    <div class="coin tier-${tier}">
+    <div class="coin tier-${tier} ${isLive?"is-live":""}">
       <div class="row1">
         <div>
-          <div class="sym">$${escapeHTML(c.symbol)}</div>
+          <div class="sym">$${escapeHTML(c.symbol)} ${isLive?'<span class="live-dot" title="live from Dexscreener"></span>':""}</div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
       </div>
       <div class="kvs">
-        <div class="kv"><span class="k">price</span> <span class="v">${fmtCompact(c.price)}</span></div>
-        <div class="kv"><span class="k">mcap</span>  <span class="v">${fmtCompact(c.mcap)}</span></div>
-        <div class="kv"><span class="k">liq</span>   <span class="v">${fmtCompact(c.liquidity)}</span></div>
-        <div class="kv"><span class="k">vol 24h</span> <span class="v">${fmtCompact(c.volume24h)}</span></div>
-        <div class="kv"><span class="k">degens</span> <span class="v">${fmtCount(c.degens)}</span></div>
-        <div class="kv"><span class="k">kols</span>   <span class="v">${fmtCount(c.kols)}</span></div>
+        <div class="kv"><span class="k">price</span><span class="v">${fmtCompact(price)} ${deltaSpan(priceDelta)}</span></div>
+        <div class="kv"><span class="k">mcap</span> <span class="v">${fmtCompact(mcap)} ${deltaSpan(mcapDelta)}</span></div>
+        <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
+        <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
+        <div class="kv"><span class="k">degens</span><span class="v">${fmtCount(c.degens)}</span></div>
+        <div class="kv"><span class="k">kols</span>  <span class="v">${fmtCount(c.kols)}</span></div>
         <div class="kv"><span class="k">holders</span><span class="v">${fmtCount(c.holders)}</span></div>
         ${c.swaps ? `<div class="kv"><span class="k">swaps</span><span class="v" style="font-size:10.5px">${escapeHTML(c.swaps.replace(/\s+/g," "))}</span></div>` : ""}
       </div>
-      <div class="chg">${chSpan("1m",ch1m)} ${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)}</div>
-      ${c.contract ? `<div class="ca">CA <code title="${escapeHTML(c.contract)}" onclick="navigator.clipboard.writeText('${escapeHTML(c.contract)}'); this.textContent='copied'; setTimeout(()=>this.textContent='${escapeHTML(truncCA(c.contract))}', 1200)">${escapeHTML(truncCA(c.contract))}</code></div>` : ""}
+      <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
+      ${calledPrice && live?.price ? `<div class="called">called at ${fmtCompact(calledPrice)} · ${fmtCompact(calledMcap)} mc · ${fmtAgo(c.ts || "")}</div>`:""}
+      ${c.contract ? `<div class="ca">CA <code title="${escapeHTML(c.contract)}" onclick="navigator.clipboard.writeText('${escapeHTML(c.contract)}'); this.textContent='copied'; setTimeout(()=>this.textContent='${escapeHTML(truncCA(c.contract))}', 1200)">${escapeHTML(truncCA(c.contract))}</code>${live?.url?` · <a href="${escapeHTML(live.url)}" target="_blank" rel="noopener" style="color:var(--green-dim);font-size:10px">dexscreener ↗</a>`:""}</div>` : ""}
       ${c.risk ? `<div class="risk">${escapeHTML(c.risk)}</div>` : ""}
     </div>
   `;
@@ -839,7 +955,7 @@ function renderMarketScan(md) {
           <span>${tierBlurb[t]}</span>
           <span class="when">${fmtAgo(post.ts)} · ${post.coins.length} coin${post.coins.length===1?"":"s"}</span>
         </div>
-        <div class="coin-grid">${post.coins.map(c => coinCard(c, t)).join("")}</div>
+        <div class="coin-grid">${post.coins.map(c => coinCard({...c, ts: post.ts}, t)).join("")}</div>
       </div>
     `;
   }).join("");
@@ -922,29 +1038,42 @@ function renderActivityChart(md) {
   });
 }
 
-/* compute per-ticker MCAP change between first flag and most recent flag */
+/* compute per-ticker MCAP change: first flag's MCAP vs LIVE MCAP from Dexscreener.
+   (Falls back to last flag's MCAP when live unavailable, so the chart works
+   immediately on first paint before Dexscreener returns.) */
 function computePerformance(md) {
   const out = [];
   for (const [symbol, flags] of md.flagsBySymbol) {
-    if (flags.length < 2) continue;
-    // flagsBySymbol entries came in newest-first order from the posts loop
     const sortedAsc = [...flags].sort((a,b) => a.ts < b.ts ? -1 : 1);
     const firstWith = sortedAsc.find(f => f.mcap != null && f.mcap > 0);
-    const lastWith  = [...sortedAsc].reverse().find(f => f.mcap != null && f.mcap > 0);
-    if (!firstWith || !lastWith || firstWith === lastWith) continue;
-    const pct = ((lastWith.mcap - firstWith.mcap) / firstWith.mcap) * 100;
+    if (!firstWith) continue;
+
+    // Live MCAP comes from any flag where dexscreener attached `.live`
+    // (same coin object across posts, so any one is fine — pick newest).
+    const newest = sortedAsc[sortedAsc.length - 1];
+    const liveMcap = newest?.live?.mcap ?? null;
+    const livePrice = newest?.live?.price ?? null;
+    const lastSnapshotMcap = [...sortedAsc].reverse().find(f => f.mcap != null && f.mcap > 0)?.mcap;
+
+    // current = live preferred, otherwise newest snapshot (and skip if same as entry)
+    const current = liveMcap ?? lastSnapshotMcap;
+    if (current == null) continue;
+    if (current === firstWith.mcap && flags.length === 1) continue;
+
+    const pct = ((current - firstWith.mcap) / firstWith.mcap) * 100;
     out.push({
       symbol,
-      name: lastWith.name || firstWith.name || "",
+      name: newest.name || firstWith.name || "",
       entry:   firstWith.mcap,
-      current: lastWith.mcap,
-      entryPrice: firstWith.price ?? null,
-      currentPrice: lastWith.price ?? null,
+      current,
+      entryPrice:   firstWith.price ?? null,
+      currentPrice: livePrice ?? newest.price ?? null,
       firstTs: firstWith.ts,
-      lastTs:  lastWith.ts,
+      lastTs:  newest.ts,
       flagCount: flags.length,
-      tier: lastWith.tier,
+      tier: newest.tier,
       pct,
+      isLive: liveMcap != null,
     });
   }
   out.sort((a,b) => b.pct - a.pct);
@@ -1043,8 +1172,7 @@ function renderWinnersLosers(md) {
   });
 }
 
-function renderAllScanPanels(messages) {
-  const md = buildMarketData(messages);
+function renderAllScanPanels(md) {
   renderScanStats(md);
   renderMarketScan(md);
   renderWinnersLosers(md);
@@ -1166,7 +1294,18 @@ async function pollFeed(){
     const data = await r.json();
     const msgs = Array.isArray(data) ? data : (data.messages || []);
     renderFeed(msgs);
-    renderAllScanPanels(msgs);
+
+    // Build market data and render snapshot first (instant paint).
+    const md = buildMarketData(msgs);
+    renderAllScanPanels(md);
+
+    // Enrich with live Dexscreener prices, re-render.
+    try {
+      await enrichWithLive(md);
+      renderAllScanPanels(md);
+    } catch (e) {
+      console.warn("live price enrichment failed:", e);
+    }
   }catch(err){
     renderFeedError(err.message || String(err));
   }
