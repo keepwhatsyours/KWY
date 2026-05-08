@@ -5,7 +5,12 @@
 // Required env: DISCORD_TOKEN, CHANNEL_ID
 // Optional env: GUILD_ID (for logging), MAX_MESSAGES, PORT, ALLOWED_ORIGIN
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+// override=true: .env wins over any shell env vars (e.g. a global DISCORD_TOKEN
+// exported from ~/.zshrc for a different bot). Project-local config is the
+// source of truth.
+dotenv.config({ override: true });
+
 import express from 'express';
 import cors from 'cors';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
