@@ -850,12 +850,17 @@ function buildMarketData(messages) {
 
   const flagCounts = new Map();
   const flagsBySymbol = new Map();
+  const flagsByContract = new Map(); // unique-token grouping (same symbol can be 2 tokens)
   let totalFlags = 0;
   for (const p of posts) {
     for (const c of p.coins) {
       flagCounts.set(c.symbol, (flagCounts.get(c.symbol)||0)+1);
       if (!flagsBySymbol.has(c.symbol)) flagsBySymbol.set(c.symbol, []);
       flagsBySymbol.get(c.symbol).push(c); // reference, not copy
+      if (c.contract) {
+        if (!flagsByContract.has(c.contract)) flagsByContract.set(c.contract, []);
+        flagsByContract.get(c.contract).push(c); // reference, not copy
+      }
       totalFlags++;
     }
   }
@@ -863,7 +868,7 @@ function buildMarketData(messages) {
   const allScores = posts.flatMap(p=>p.coins.map(c=>c.score)).filter(s=>s!=null);
   const avgScore = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
 
-  return { posts, latestByTier, flagCounts, flagsBySymbol, topFlagged, totalFlags, avgScore, totalScans: posts.length };
+  return { posts, latestByTier, flagCounts, flagsBySymbol, flagsByContract, topFlagged, totalFlags, avgScore, totalScans: posts.length };
 }
 
 const tierLabel = { big: "BIG CAP", mid: "MID CAP", low: "LOW CAP" };
@@ -1048,15 +1053,18 @@ function renderActivityChart(md) {
   });
 }
 
-/* compute per-ticker MCAP change for ROLLING LAST 24 HOURS:
+/* compute per-token MCAP change for ROLLING LAST 24 HOURS:
    first flag in the last 24h vs LIVE MCAP from Dexscreener.
-   Coins with no flag in the last 24h are excluded. */
+   Keyed by contract address (NOT symbol) — same symbol can be a different
+   token in a different tier (e.g. Big-Cap HANTA vs Low-Cap HANTA are two coins).
+   Coins with no contract or no flag in the last 24h are excluded. */
 function computePerformance(md) {
   // 24 hours ago, as ISO, so string-compare works against ts
   const cutoffIso = new Date(Date.now() - 24*60*60*1000).toISOString();
 
   const out = [];
-  for (const [symbol, flags] of md.flagsBySymbol) {
+  for (const [contract, flags] of md.flagsByContract) {
+    const symbol = flags[0].symbol;
     // only flags within the last 24 hours
     const todayFlags = flags.filter(f => f.ts >= cutoffIso);
     if (!todayFlags.length) continue;
@@ -1079,6 +1087,7 @@ function computePerformance(md) {
     const pct = ((current - firstWith.mcap) / firstWith.mcap) * 100;
     out.push({
       symbol,
+      contract,
       name: newest.name || firstWith.name || "",
       entry:   firstWith.mcap,
       current,
@@ -1125,15 +1134,21 @@ function renderWinnersLosers(md) {
     ${worst.pct < 0 ? `<span class="pill loser">worst: <b>$${escapeHTML(worst.symbol)}</b> ${worst.pct.toFixed(1)}%</span>` : ""}
   `;
 
-  // top 8 winners + bottom 8 losers, deduped, in sort order
+  // top 8 winners + bottom 8 losers, deduped by contract (unique token)
   const winSlice = perf.slice(0, 8);
   const losSlice = perf.slice(-8);
   const seen = new Set();
   const combined = [...winSlice, ...losSlice].filter(p => {
-    if (seen.has(p.symbol)) return false;
-    seen.add(p.symbol);
+    const key = p.contract || p.symbol;
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
+
+  // disambiguate identical symbols by appending tier (Big-Cap HANTA vs Low-Cap HANTA)
+  const symCount = {};
+  for (const p of combined) symCount[p.symbol] = (symCount[p.symbol]||0) + 1;
+  const labelOf = p => symCount[p.symbol] > 1 ? `$${p.symbol} (${p.tier})` : `$${p.symbol}`;
 
   if (wlChart) { wlChart.destroy(); wlChart = null; }
   Chart.defaults.color = "#1f9f3a";
@@ -1141,7 +1156,7 @@ function renderWinnersLosers(md) {
   wlChart = new Chart(ctx, {
     type: "bar",
     data: {
-      labels: combined.map(p => "$" + p.symbol),
+      labels: combined.map(labelOf),
       datasets: [{
         label: "MCAP change %",
         data: combined.map(p => p.pct),
