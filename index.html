@@ -228,6 +228,12 @@
     border-top:1px dashed rgba(0,255,65,.1);padding-top:5px;
   }
 
+  /* winners & losers summary strip */
+  .wl-summary{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--green-dim);text-transform:uppercase;letter-spacing:.12em}
+  .wl-summary .pill{padding:4px 10px;border:1px solid var(--green-deep);border-radius:2px;background:rgba(0,255,65,.025)}
+  .wl-summary .pill b{color:var(--green);font-weight:600}
+  .wl-summary .pill.loser b{color:#ff5577}
+
   /* tier badge for table rows */
   .tag.tier-big{color:var(--green);border-color:var(--green-deep)}
   .tag.tier-mid{color:var(--amber);border-color:rgba(255,176,0,.45)}
@@ -321,6 +327,13 @@
   <div class="panel">
     <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
     <div id="market-scan"></div>
+  </div>
+
+  <!-- WINNERS & LOSERS — MCAP delta from first flag to most recent flag -->
+  <div class="panel">
+    <h2>WINNERS &amp; LOSERS <span class="meta" id="wl-meta">// no repeat flags yet…</span></h2>
+    <div id="wl-summary" class="wl-summary"></div>
+    <div class="chart-wrap" style="height:380px"><canvas id="wl-chart"></canvas></div>
   </div>
 
   <!-- INTEL FEED (DISCORD) -->
@@ -909,10 +922,132 @@ function renderActivityChart(md) {
   });
 }
 
+/* compute per-ticker MCAP change between first flag and most recent flag */
+function computePerformance(md) {
+  const out = [];
+  for (const [symbol, flags] of md.flagsBySymbol) {
+    if (flags.length < 2) continue;
+    // flagsBySymbol entries came in newest-first order from the posts loop
+    const sortedAsc = [...flags].sort((a,b) => a.ts < b.ts ? -1 : 1);
+    const firstWith = sortedAsc.find(f => f.mcap != null && f.mcap > 0);
+    const lastWith  = [...sortedAsc].reverse().find(f => f.mcap != null && f.mcap > 0);
+    if (!firstWith || !lastWith || firstWith === lastWith) continue;
+    const pct = ((lastWith.mcap - firstWith.mcap) / firstWith.mcap) * 100;
+    out.push({
+      symbol,
+      name: lastWith.name || firstWith.name || "",
+      entry:   firstWith.mcap,
+      current: lastWith.mcap,
+      entryPrice: firstWith.price ?? null,
+      currentPrice: lastWith.price ?? null,
+      firstTs: firstWith.ts,
+      lastTs:  lastWith.ts,
+      flagCount: flags.length,
+      tier: lastWith.tier,
+      pct,
+    });
+  }
+  out.sort((a,b) => b.pct - a.pct);
+  return out;
+}
+
+let wlChart = null;
+function renderWinnersLosers(md) {
+  const perf = computePerformance(md);
+  const meta = document.getElementById("wl-meta");
+  const summary = document.getElementById("wl-summary");
+  const ctx = document.getElementById("wl-chart");
+
+  if (!perf.length) {
+    meta.textContent = "// awaiting repeat flags…";
+    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins have been flagged twice yet — once Bubba Bot re-mentions a coin, MCAP delta appears here.</div>`;
+    if (wlChart) { wlChart.destroy(); wlChart = null; }
+    if (ctx?.getContext) ctx.getContext("2d").clearRect(0, 0, ctx.width, ctx.height);
+    return;
+  }
+
+  const winners = perf.filter(p => p.pct > 0);
+  const losers  = perf.filter(p => p.pct < 0);
+  const top   = perf[0];
+  const worst = perf[perf.length - 1];
+
+  meta.textContent = `${perf.length} coins · first flag → latest flag`;
+  summary.innerHTML = `
+    <span class="pill">tracked: <b>${perf.length}</b></span>
+    <span class="pill">winners: <b>${winners.length}</b></span>
+    <span class="pill loser">losers: <b>${losers.length}</b></span>
+    ${top.pct > 0 ? `<span class="pill">top: <b>$${escapeHTML(top.symbol)}</b> ${(top.pct>=0?"+":"")}${top.pct.toFixed(1)}%</span>` : ""}
+    ${worst.pct < 0 ? `<span class="pill loser">worst: <b>$${escapeHTML(worst.symbol)}</b> ${worst.pct.toFixed(1)}%</span>` : ""}
+  `;
+
+  // top 8 winners + bottom 8 losers, deduped, in sort order
+  const winSlice = perf.slice(0, 8);
+  const losSlice = perf.slice(-8);
+  const seen = new Set();
+  const combined = [...winSlice, ...losSlice].filter(p => {
+    if (seen.has(p.symbol)) return false;
+    seen.add(p.symbol);
+    return true;
+  });
+
+  if (wlChart) { wlChart.destroy(); wlChart = null; }
+  Chart.defaults.color = "#1f9f3a";
+  Chart.defaults.font.family = "JetBrains Mono, monospace";
+  wlChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: combined.map(p => "$" + p.symbol),
+      datasets: [{
+        label: "MCAP change %",
+        data: combined.map(p => p.pct),
+        backgroundColor: combined.map(p => p.pct >= 0 ? "rgba(0,255,65,.55)" : "rgba(255,85,119,.55)"),
+        borderColor:     combined.map(p => p.pct >= 0 ? "#00ff41"            : "#ff5577"),
+        borderWidth: 1,
+        borderRadius: 2,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#0a0e0a", borderColor: "#1f9f3a", borderWidth: 1,
+          titleColor: "#00ff41", bodyColor: "#9ad99a",
+          callbacks: {
+            title: c => c[0].label + (combined[c[0].dataIndex].name ? " · " + combined[c[0].dataIndex].name : ""),
+            label: c => {
+              const p = combined[c.dataIndex];
+              return [
+                "first flag : " + fmtCompact(p.entry),
+                "latest     : " + fmtCompact(p.current),
+                "change     : " + (p.pct >= 0 ? "+" : "") + p.pct.toFixed(1) + "%",
+                "flagged    : " + p.flagCount + "×",
+              ];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: "rgba(0,255,65,.07)" },
+          ticks: { color: "#1f9f3a", callback: v => (v >= 0 ? "+" : "") + v + "%" },
+        },
+        y: {
+          grid: { color: "rgba(0,255,65,.05)" },
+          ticks: { color: "#cdeacd", font: { weight: "600", size: 12 } },
+        },
+      },
+      animation: { duration: 700, easing: "easeOutCubic" },
+    },
+  });
+}
+
 function renderAllScanPanels(messages) {
   const md = buildMarketData(messages);
   renderScanStats(md);
   renderMarketScan(md);
+  renderWinnersLosers(md);
   renderFlagHistory(md);
   renderActivityChart(md);
 }
