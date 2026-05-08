@@ -875,15 +875,29 @@ function buildMarketData(messages) {
 const tierLabel = { big: "BIG CAP", mid: "MID CAP", low: "LOW CAP" };
 const tierBlurb = { big: "$1M – $10M MC · established", mid: "$150K – $1M MC · momentum", low: "$5K – $150K MC · early runners" };
 
+// Format a USD number compactly without ever using scientific notation.
+// Sub-cent values use the crypto-standard subscript-zeros notation:
+//   $0.0₆1234 = $0.0000001234   (subscript = total zeros after decimal)
 const fmtCompact = n => {
   if (n == null || isNaN(n)) return "—";
   const abs = Math.abs(n);
-  if (abs >= 1e9) return "$" + (n/1e9).toFixed(2) + "B";
-  if (abs >= 1e6) return "$" + (n/1e6).toFixed(2) + "M";
-  if (abs >= 1e3) return "$" + (n/1e3).toFixed(1) + "K";
-  if (abs >= 1)   return "$" + n.toFixed(2);
-  if (abs >= 0.0001) return "$" + n.toFixed(6);
-  return "$" + n.toExponential(2);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1e9) return sign + "$" + (abs/1e9).toFixed(2) + "B";
+  if (abs >= 1e6) return sign + "$" + (abs/1e6).toFixed(2) + "M";
+  if (abs >= 1e3) return sign + "$" + (abs/1e3).toFixed(1) + "K";
+  if (abs >= 1)   return sign + "$" + abs.toFixed(2);
+  if (abs === 0)  return "$0";
+  // Sub-1: keep up to 4 significant digits, never an exponent.
+  const exp = -Math.floor(Math.log10(abs));      // 1..N
+  const zeros = exp - 1;                          // count of zeros after decimal
+  const sigVal = abs * Math.pow(10, exp);         // 1.0000..9.9999
+  const sigDigits = (sigVal.toFixed(3).replace(".", "").replace(/0+$/, "") || "0");
+  if (zeros >= 4) {
+    const sub = "₀₁₂₃₄₅₆₇₈₉";
+    const zerosPart = String(zeros).split("").map(d => sub[+d]).join("");
+    return `${sign}$0.0${zerosPart}${sigDigits}`;
+  }
+  return `${sign}$0.${"0".repeat(zeros)}${sigDigits}`;
 };
 const fmtCount = n => n == null || isNaN(n) ? "—" : n.toLocaleString();
 const fmtAgo = iso => {
