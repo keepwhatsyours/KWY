@@ -90,10 +90,13 @@
   .hero{
     text-align:center;margin:18px 0 10px;
     text-shadow:0 0 14px rgba(0,255,65,.55);
+    overflow-x:hidden;  /* belt-and-suspenders if anyone narrower than 320px */
   }
   .hero pre{
     display:inline-block;margin:0;
-    font-size:clamp(6px,1.05vw,12px);line-height:1.05;
+    /* scale linearly with viewport so the 122-char banner always fits.
+       at 320px → ~3.4px, at 1200px → 12px (capped) */
+    font-size:clamp(3px,1.05vw,12px);line-height:1.05;
     color:var(--green);
   }
   .tagline{
@@ -349,7 +352,7 @@
 
   /* small */
   @media (max-width:700px){
-    .hero pre{font-size:7px}
+    /* let clamp() drive the hero size; previously hard-pinned at 7px which overflowed phones */
     .wrap{padding:14px 14px 60px}
     .stat .v{font-size:18px}
   }
