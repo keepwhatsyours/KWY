@@ -196,13 +196,15 @@
   .coin .row1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
   .coin .sym{font-size:16px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.4);letter-spacing:.04em}
   .coin .name{color:var(--green-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
-  .coin .score{
+  /* generic score badge — works in coin cards AND in flag history table */
+  .score{
+    display:inline-block;
     font-size:11px;font-weight:600;padding:2px 6px;border-radius:2px;
-    color:var(--bg);
+    color:var(--bg);min-width:24px;text-align:center;
   }
-  .coin .score.s-hi{background:var(--green);box-shadow:0 0 8px rgba(0,255,65,.4)}
-  .coin .score.s-md{background:var(--amber)}
-  .coin .score.s-lo{background:#ff5577}
+  .score.s-hi{background:var(--green);box-shadow:0 0 8px rgba(0,255,65,.4)}
+  .score.s-md{background:var(--amber)}
+  .score.s-lo{background:#ff5577}
   .coin .kvs{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:6px}
   .coin .kv{display:flex;justify-content:space-between;gap:6px;font-size:11.5px}
   .coin .kv .k{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em;font-size:10px}
@@ -1018,7 +1020,7 @@ function renderFlagHistory(md) {
         <td class="num">${fmtCompact(r.price)}</td>
         <td class="num">${fmtCompact(r.mcap)}</td>
         <td class="num">${fmtCompact(r.volume24h)}</td>
-        <td class="num"><span class="${scCls?"score "+scCls:""}" style="display:inline-block;padding:1px 6px;border-radius:2px;font-size:11px;color:${scCls?"var(--bg)":"var(--green)"}">${sc}</span></td>
+        <td class="num">${scCls ? `<span class="score ${scCls}">${sc}</span>` : `<span style="color:var(--green-dim)">—</span>`}</td>
         <td class="num">${fmtCount(r.degens)}</td>
         <td style="color:#9ad99a;font-size:11px">${escapeHTML((r.risk||"").slice(0,38))}</td>
       </tr>
