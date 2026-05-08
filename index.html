@@ -252,6 +252,13 @@
   .wl-summary .pill b{color:var(--green);font-weight:600}
   .wl-summary .pill.loser b{color:#ff5577}
 
+  /* clickable symbol cell in flag history */
+  td.sym-cell{cursor:pointer;transition:background .15s}
+  td.sym-cell:hover{background:rgba(0,255,65,.07)}
+  td.sym-cell:hover b{text-shadow:0 0 6px rgba(0,255,65,.5)}
+  td.sym-cell.copied{background:rgba(0,255,65,.12)}
+  td.sym-cell.copied b{color:var(--green);text-shadow:0 0 8px rgba(0,255,65,.6)}
+
   /* tier badge for table rows */
   .tag.tier-big{color:var(--green);border-color:var(--green-deep)}
   .tag.tier-mid{color:var(--amber);border-color:rgba(255,176,0,.45)}
@@ -976,7 +983,7 @@ function renderMarketScan(md) {
 function renderFlagHistory(md) {
   // flatten all flags newest-first
   const rows = [];
-  for (const p of md.posts) for (const c of p.coins) rows.push({ ts: p.ts, tier: p.tier, ...c });
+  for (const p of md.posts) for (const c of p.coins) rows.push(c);
   // already newest-first because posts came newest-first
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = rows.slice(0, 80).map(r => {
@@ -984,11 +991,16 @@ function renderFlagHistory(md) {
     const t = ts.toISOString().slice(5,16).replace("T"," ");
     const sc = r.score == null ? "—" : Math.round(r.score);
     const scCls = scoreClass(r.score);
+    const ca = r.contract || "";
+    // click-to-copy on the symbol cell
+    const symCell = ca
+      ? `<td class="sym-cell" title="click to copy contract: ${escapeHTML(ca)}" data-ca="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.querySelector('b').textContent;el.querySelector('b').textContent='copied ✓';el.classList.add('copied');setTimeout(function(){el.querySelector('b').textContent=o;el.classList.remove('copied');},1100);})(this)"><b>$${escapeHTML(r.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(r.name||"")}</div></td>`
+      : `<td><b>$${escapeHTML(r.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(r.name||"")}</div></td>`;
     return `
       <tr>
         <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${t}</td>
         <td><span class="tag tier-${r.tier}">${tierLabel[r.tier]}</span></td>
-        <td><b>$${escapeHTML(r.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(r.name||"")}</div></td>
+        ${symCell}
         <td class="num">${fmtCompact(r.price)}</td>
         <td class="num">${fmtCompact(r.mcap)}</td>
         <td class="num">${fmtCompact(r.volume24h)}</td>
@@ -998,7 +1010,7 @@ function renderFlagHistory(md) {
       </tr>
     `;
   }).join("");
-  document.getElementById("tr-meta").textContent = `${rows.length} flags logged · showing newest 80`;
+  document.getElementById("tr-meta").textContent = `${rows.length} flags logged · showing newest 80 · click symbol to copy CA`;
 }
 
 /* compute per-token MCAP change for ROLLING LAST 24 HOURS:
