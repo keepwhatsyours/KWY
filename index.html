@@ -347,9 +347,9 @@
     <div id="market-scan"></div>
   </div>
 
-  <!-- WINNERS & LOSERS — MCAP delta from first flag to most recent flag -->
+  <!-- DAILY WINNERS & LOSERS — first flag today vs live MCAP -->
   <div class="panel">
-    <h2>WINNERS &amp; LOSERS <span class="meta" id="wl-meta">// no repeat flags yet…</span></h2>
+    <h2>DAILY WINNERS &amp; LOSERS <span class="meta" id="wl-meta">// awaiting today's flags…</span></h2>
     <div id="wl-summary" class="wl-summary"></div>
     <div class="chart-wrap" style="height:380px"><canvas id="wl-chart"></canvas></div>
   </div>
@@ -1048,27 +1048,35 @@ function renderActivityChart(md) {
   });
 }
 
-/* compute per-ticker MCAP change: first flag's MCAP vs LIVE MCAP from Dexscreener.
-   (Falls back to last flag's MCAP when live unavailable, so the chart works
-   immediately on first paint before Dexscreener returns.) */
+/* compute per-ticker MCAP change for TODAY ONLY:
+   first flag-today MCAP vs LIVE MCAP from Dexscreener.
+   Coins not flagged today are excluded. */
 function computePerformance(md) {
+  // start of today in local time, as ISO so string-compare works against ts
+  const t0 = new Date();
+  t0.setHours(0, 0, 0, 0);
+  const todayStartIso = t0.toISOString();
+
   const out = [];
   for (const [symbol, flags] of md.flagsBySymbol) {
-    const sortedAsc = [...flags].sort((a,b) => a.ts < b.ts ? -1 : 1);
+    // only flags from today
+    const todayFlags = flags.filter(f => f.ts >= todayStartIso);
+    if (!todayFlags.length) continue;
+
+    const sortedAsc = [...todayFlags].sort((a,b) => a.ts < b.ts ? -1 : 1);
     const firstWith = sortedAsc.find(f => f.mcap != null && f.mcap > 0);
     if (!firstWith) continue;
 
-    // Live MCAP comes from any flag where dexscreener attached `.live`
-    // (same coin object across posts, so any one is fine — pick newest).
+    // live MCAP — same object reference across posts, pick newest of today's flags
     const newest = sortedAsc[sortedAsc.length - 1];
-    const liveMcap = newest?.live?.mcap ?? null;
+    const liveMcap  = newest?.live?.mcap  ?? null;
     const livePrice = newest?.live?.price ?? null;
     const lastSnapshotMcap = [...sortedAsc].reverse().find(f => f.mcap != null && f.mcap > 0)?.mcap;
 
-    // current = live preferred, otherwise newest snapshot (and skip if same as entry)
     const current = liveMcap ?? lastSnapshotMcap;
     if (current == null) continue;
-    if (current === firstWith.mcap && flags.length === 1) continue;
+    // need a real delta — skip if entry==current with only one snapshot and no live
+    if (current === firstWith.mcap && todayFlags.length === 1 && liveMcap == null) continue;
 
     const pct = ((current - firstWith.mcap) / firstWith.mcap) * 100;
     out.push({
@@ -1080,7 +1088,7 @@ function computePerformance(md) {
       currentPrice: livePrice ?? newest.price ?? null,
       firstTs: firstWith.ts,
       lastTs:  newest.ts,
-      flagCount: flags.length,
+      flagCount: todayFlags.length,
       tier: newest.tier,
       pct,
       isLive: liveMcap != null,
@@ -1098,8 +1106,8 @@ function renderWinnersLosers(md) {
   const ctx = document.getElementById("wl-chart");
 
   if (!perf.length) {
-    meta.textContent = "// awaiting repeat flags…";
-    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins have been flagged twice yet — once Bubba Bot re-mentions a coin, MCAP delta appears here.</div>`;
+    meta.textContent = "// no flags today yet…";
+    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins flagged today yet — once Bubba Bot posts today's first scan, today's winners and losers appear here.</div>`;
     if (wlChart) { wlChart.destroy(); wlChart = null; }
     if (ctx?.getContext) ctx.getContext("2d").clearRect(0, 0, ctx.width, ctx.height);
     return;
@@ -1110,7 +1118,7 @@ function renderWinnersLosers(md) {
   const top   = perf[0];
   const worst = perf[perf.length - 1];
 
-  meta.textContent = `${perf.length} coins · first flag → latest flag`;
+  meta.textContent = `${perf.length} coins flagged today · first flag → live`;
   summary.innerHTML = `
     <span class="pill">tracked: <b>${perf.length}</b></span>
     <span class="pill">winners: <b>${winners.length}</b></span>
