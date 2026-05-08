@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'bot/**'
+      - 'Dockerfile'
       - '.github/workflows/deploy-bot.yml'
   workflow_dispatch:
 
