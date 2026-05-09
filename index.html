@@ -437,12 +437,6 @@
   </div>
   <div class="tagline">// daily <b>ai-generated</b> meme coin ops &nbsp;·&nbsp; live <b>p&amp;l</b> &nbsp;·&nbsp; no hopium <b>only data</b><span class="cursor">&nbsp;</span></div>
 
-  <!-- SIGNAL STATUS -->
-  <div class="panel">
-    <h2>SIGNAL STATUS <span class="meta" id="updated">syncing…</span></h2>
-    <div class="stats" id="stats"></div>
-  </div>
-
   <!-- MARKET SCAN — latest Big/Mid/Low Cap signals from Discord -->
   <div class="panel">
     <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
@@ -1283,7 +1277,6 @@ function renderWinnersLosers(md) {
 }
 
 function renderAllScanPanels(md) {
-  renderScanStats(md);
   renderMarketScan(md);
   renderWinnersLosers(md);
   renderFlagHistory(md);
@@ -1576,7 +1569,8 @@ tickClock();
   startBurpboardPolling();
 
   const updated = new Date().toLocaleString(undefined,{hour12:false});
-  document.getElementById("updated").textContent = "last sync " + updated;
+  const updatedEl = document.getElementById("updated");
+  if (updatedEl) updatedEl.textContent = "last sync " + updated;
 })();
 </script>
 </body>
