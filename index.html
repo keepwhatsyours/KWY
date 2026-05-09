@@ -1074,7 +1074,7 @@ function coinCard(c, tier) {
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
       </div>
-      ${mcapDelta != null ? `<div class="mcap-banner ${mcapDelta>=0?"pos":"neg"}">${mcapDelta>=0?"▲ +":"▼ "}${Math.abs(mcapDelta).toFixed(1)}% <span class="bnr-label">since called</span></div>` : ""}
+      ${mcapDelta != null ? `<div class="mcap-banner ${mcapDelta>=0?"pos":"neg"}">${mcapDelta>=0?"▲ +":"▼ "}${Math.abs(mcapDelta).toFixed(1)}%</div>` : ""}
       ${(() => {
         // Parse "10,681 (Buy/Sell: 1.22x)" into separate count + ratio fields.
         let swapCount = null, swapRatio = null;
