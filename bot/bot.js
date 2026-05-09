@@ -313,6 +313,19 @@ app.get('/burpboard', async (_req, res) => {
 // Scrapes t.me/s/<slug> and shapes posts into the same {id, author, content,
 // timestamp, attachments, embeds} format the Discord /feed uses, so the site's
 // existing INTEL FEED renderer works without modification.
+// Replace "GMGN Chart" / "📊 GMGN Chart" mentions with a Dexscreener URL for
+// the first Solana-looking contract in the post. The site's linkify will turn
+// the URL into a clickable green link.
+function linkifyGmgnChart(content) {
+  if (!content || !/GMGN\s*Chart/i.test(content)) return content;
+  // Solana base58 address: alphabet excludes 0, O, I, l. Typically 32–44 chars.
+  // Pump.fun tokens end in "pump"; we don't require it.
+  const caMatch = content.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/);
+  if (!caMatch) return content;
+  const dexUrl = `https://dexscreener.com/solana/${caMatch[0]}`;
+  return content.replace(/(?:📊\s*)?GMGN\s*Chart/gi, `📊 ${dexUrl}`);
+}
+
 // Drop "🔸Join Automated trading🔸" / "🔹Strategy results🔹" style promo lines
 // AlphaStrikeSol appends to every post.
 function stripPromoLines(content) {
@@ -384,7 +397,9 @@ async function fetchTelegramChannel(slug, max = 30) {
 
     // Match the message text div (avoid greedy match into footer/reactions).
     const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
-    const content = textMatch ? stripPromoLines(tgHtmlToText(textMatch[1]).trim()) : '';
+    const content = textMatch
+      ? linkifyGmgnChart(stripPromoLines(tgHtmlToText(textMatch[1]).trim()))
+      : '';
 
     const timeMatch = inner.match(/<time[^>]*\bdatetime="([^"]+)"/);
     const timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();
