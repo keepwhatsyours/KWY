@@ -309,12 +309,125 @@ app.get('/burpboard', async (_req, res) => {
   res.json(data);
 });
 
+// ---------- TELEGRAM CHANNEL SCRAPER (generic) ----------
+// Scrapes t.me/s/<slug> and shapes posts into the same {id, author, content,
+// timestamp, attachments, embeds} format the Discord /feed uses, so the site's
+// existing INTEL FEED renderer works without modification.
+function tgHtmlToText(html) {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_, url, text) => {
+      const cleanText = text.replace(/<[^>]+>/g, '').trim();
+      // If text equals URL, just keep URL. Otherwise show "text URL" so the
+      // site's linkify can wrap the URL into a clickable link.
+      if (!cleanText || cleanText === url) return url;
+      return `${cleanText} ${url}`;
+    })
+    .replace(/<tg-emoji[^>]*>([\s\S]*?)<\/tg-emoji>/gi, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+
+async function fetchTelegramChannel(slug, max = 30) {
+  const url = `https://t.me/s/${slug}`;
+  const r = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; KWY-Bot/0.1; +https://keepwhatsyours.ai)',
+      'Accept': 'text/html,application/xhtml+xml',
+    },
+  });
+  if (!r.ok) throw new Error(`telegram ${slug} http ${r.status}`);
+  const html = await r.text();
+
+  const messages = [];
+  // Each message: <div class="tgme_widget_message ..." data-post="slug/id">...</div>
+  // until the next message wrap or end of section.
+  const reMsg = /<div\s+class="[^"]*\btgme_widget_message\b[^"]*"\s+data-post="([^"]+)"[^>]*>([\s\S]*?)(?=<div\s+class="[^"]*\btgme_widget_message_wrap\b|<\/section>|<script)/g;
+  let m;
+  while ((m = reMsg.exec(html))) {
+    const dataPost = m[1];
+    const inner = m[2];
+
+    const ownerMatch = inner.match(/<a[^>]*class="[^"]*tgme_widget_message_owner_name[^"]*"[^>]*>([\s\S]*?)<\/a>/);
+    const owner = ownerMatch ? ownerMatch[1].replace(/<[^>]+>/g, '').trim() : slug;
+
+    // Match the message text div (avoid greedy match into footer/reactions).
+    const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
+    const content = textMatch ? tgHtmlToText(textMatch[1]).trim() : '';
+
+    const timeMatch = inner.match(/<time[^>]*\bdatetime="([^"]+)"/);
+    const timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();
+
+    const photos = [...inner.matchAll(/background-image:url\('([^']+)'\)/g)].map(p => ({
+      url: p[1], contentType: 'image/jpeg', name: null,
+    }));
+    // also <video src> for video previews
+    const videos = [...inner.matchAll(/<video[^>]*\bsrc="([^"]+)"/g)].map(v => ({
+      url: v[1], contentType: 'video/mp4', name: null,
+    }));
+
+    if (!content && !photos.length && !videos.length) continue;
+
+    messages.push({
+      id: dataPost,
+      author: owner,
+      avatar: '',
+      bot: false,
+      content,
+      timestamp,
+      attachments: [...photos, ...videos],
+      embeds: [],
+    });
+  }
+
+  // t.me/s/ shows oldest-first; reverse to newest-first like /feed.
+  messages.reverse();
+  return messages.slice(0, max);
+}
+
+// ---------- ALPHASTRIKE SOL ----------
+const ALPHA_SLUG = 'AlphaStrikeSol';
+const ALPHA_TTL_MS = 5 * 60 * 1000;
+let alphaCache = null;
+let alphaFetchedAt = 0;
+
+async function getAlphaStrike() {
+  const now = Date.now();
+  if (alphaCache && now - alphaFetchedAt < ALPHA_TTL_MS) return alphaCache;
+  try {
+    const messages = await fetchTelegramChannel(ALPHA_SLUG, 30);
+    alphaCache = {
+      updated: new Date().toISOString(),
+      source: `https://t.me/${ALPHA_SLUG}`,
+      count: messages.length,
+      messages,
+    };
+    alphaFetchedAt = now;
+    console.log(`[ok]  alphastrike refreshed (${messages.length} messages)`);
+  } catch (err) {
+    console.warn('[warn] alphastrike fetch failed:', err.message);
+  }
+  return alphaCache;
+}
+
+getAlphaStrike();
+setInterval(() => getAlphaStrike(), ALPHA_TTL_MS);
+
+app.get('/alphastrike', async (_req, res) => {
+  const data = await getAlphaStrike();
+  if (!data) return res.status(503).json({ error: 'alphastrike unavailable' });
+  res.set('Cache-Control', 'public, max-age=60');
+  res.json(data);
+});
+
 app.get('/', (_req, res) => {
   res.type('text/plain').send(
     `KEEPWHATSYOURS.AI feed bot\n\n` +
-      `GET /feed       last ${MAX} messages from channel ${CHANNEL_ID}\n` +
-      `GET /burpboard  latest "Best performing tokens | Last 24H" from t.me/burpboard\n` +
-      `GET /health     status\n`
+      `GET /feed         last ${MAX} messages from channel ${CHANNEL_ID}\n` +
+      `GET /alphastrike  latest posts from t.me/${ALPHA_SLUG}\n` +
+      `GET /burpboard    latest "Best performing tokens | Last 24H" from t.me/burpboard\n` +
+      `GET /health       status\n`
   );
 });
 
