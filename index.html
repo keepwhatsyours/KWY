@@ -1064,7 +1064,7 @@ function coinCard(c, tier) {
         }
         return `
       <div class="kvs">
-        <div class="kv"><span class="k">mcap</span> <span class="v">${fmtCompact(mcap)} ${deltaSpan(mcapDelta)}</span></div>
+        <div class="kv"><span class="k">mcap</span><span class="v" style="display:inline-flex;flex-direction:column;align-items:flex-end;line-height:1.2;gap:1px">${mcapDelta != null ? deltaSpan(mcapDelta) : ""}<span>${fmtCompact(mcap)}</span></span></div>
         <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
         <div class="kv"><span class="k">degens</span><span class="v">${fmtCount(c.degens)}</span></div>
