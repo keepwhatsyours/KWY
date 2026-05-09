@@ -354,6 +354,15 @@
   .feed-msg .head .who.bot::after{content:" [BOT]";color:var(--amber);font-size:9px;letter-spacing:.1em}
   .feed-msg .body{color:#cdeacd;white-space:pre-wrap;word-break:break-word}
   .feed-msg .body a{color:var(--green);text-decoration:underline;border-bottom:none}
+  .feed-msg .body a.chart-link{
+    text-decoration:none;border:1px solid var(--green-deep);
+    padding:1px 7px;border-radius:3px;
+    background:rgba(0,255,65,.06);font-size:11px;letter-spacing:.05em;
+    transition:background .15s, border-color .15s;
+  }
+  .feed-msg .body a.chart-link:hover{
+    background:rgba(0,255,65,.18);border-color:var(--green);
+  }
   .feed-msg .att{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   .feed-msg .att img{max-height:120px;max-width:100%;border:1px solid var(--green-deep);border-radius:2px;display:block}
   .feed-msg .att .file{padding:3px 8px;border:1px dashed var(--green-deep);border-radius:2px;font-size:11px;color:var(--green-dim)}
@@ -1291,6 +1300,13 @@ const linkify = s => s
   .replace(/&lt;@!?(\d+)&gt;/g, '<span style="color:var(--amber)">@user</span>')
   .replace(/&lt;#(\d+)&gt;/g,    '<span style="color:var(--amber)">#chan</span>');
 
+// Collapse "📊 <a>URL</a>" → "<a>📊 chart</a>" so a Dexscreener URL preceded by
+// the chart emoji renders as a tidy clickable icon-link instead of a long URL.
+const collapseChartLinks = s => s.replace(
+  /📊\s*<a\s+(href="https?:\/\/[^"]*dexscreener\.com[^"]*"[^>]*)>[^<]*<\/a>/g,
+  '<a $1 title="open chart on Dexscreener" class="chart-link">📊 chart</a>'
+);
+
 const isImage = a => (a.contentType||"").startsWith("image/") ||
                      /\.(png|jpe?g|gif|webp|avif)$/i.test(a.url||"");
 
@@ -1348,7 +1364,7 @@ function renderFeed(messages){
     feedSeen.add(m.id);
 
     const body = m.content
-      ? `<div class="body">${linkify(escapeHTML(m.content))}</div>`
+      ? `<div class="body">${collapseChartLinks(linkify(escapeHTML(m.content)))}</div>`
       : "";
 
     const atts = (m.attachments||[]).map(a => {
