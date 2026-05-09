@@ -476,7 +476,6 @@
             <th>TIME</th>
             <th>TIER</th>
             <th>SYM</th>
-            <th class="num">PRICE</th>
             <th class="num">MCAP</th>
             <th class="num">VOL 24H</th>
             <th class="num">SCORE</th>
@@ -1055,7 +1054,6 @@ function coinCard(c, tier) {
         ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
       </div>
       <div class="kvs">
-        <div class="kv"><span class="k">price</span><span class="v">${fmtCompact(price)} ${deltaSpan(priceDelta)}</span></div>
         <div class="kv"><span class="k">mcap</span> <span class="v">${fmtCompact(mcap)} ${deltaSpan(mcapDelta)}</span></div>
         <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
@@ -1065,7 +1063,7 @@ function coinCard(c, tier) {
         ${c.swaps ? `<div class="kv"><span class="k">swaps</span><span class="v" style="font-size:10.5px">${escapeHTML(c.swaps.replace(/\s+/g," "))}</span></div>` : ""}
       </div>
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
-      ${calledPrice && live?.price ? `<div class="called">called at ${fmtCompact(calledPrice)} · ${fmtCompact(calledMcap)} mc · ${fmtAgo(c.ts || "")}</div>`:""}
+      ${calledMcap && live?.mcap ? `<div class="called">called at ${fmtCompact(calledMcap)} mc · ${fmtAgo(c.ts || "")}</div>`:""}
       ${c.contract ? `<div class="ca">CA <code title="${escapeHTML(c.contract)}" onclick="navigator.clipboard.writeText('${escapeHTML(c.contract)}'); this.textContent='copied'; setTimeout(()=>this.textContent='${escapeHTML(truncCA(c.contract))}', 1200)">${escapeHTML(truncCA(c.contract))}</code>${live?.url?` · <a href="${escapeHTML(live.url)}" target="_blank" rel="noopener" style="color:var(--green-dim);font-size:10px">dexscreener ↗</a>`:""}</div>` : ""}
       ${c.risk ? `<div class="risk">${escapeHTML(c.risk)}</div>` : ""}
     </div>
@@ -1114,7 +1112,6 @@ function renderFlagHistory(md) {
         <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${t}</td>
         <td><span class="tag tier-${r.tier}">${tierLabel[r.tier]}</span></td>
         ${symCell}
-        <td class="num">${fmtCompact(r.price)}</td>
         <td class="num">${fmtCompact(r.mcap)}</td>
         <td class="num">${fmtCompact(r.volume24h)}</td>
         <td class="num">${scCls ? `<span class="score ${scCls}">${sc}</span>` : `<span style="color:var(--green-dim)">—</span>`}</td>
