@@ -441,9 +441,49 @@ const INTEL_SLUGS = [
   'ShitCoinGemsCall',
   'PEPE_Calls28',
 ];
-const INTEL_PER_CHANNEL = 10;   // pull from each channel
+const INTEL_PER_CHANNEL = 20;   // pull more than we need, filter junk, then cap
 const INTEL_TOTAL = 50;         // cap merged result
 const INTEL_TTL_MS = 5 * 60 * 1000;
+
+// Strip Telegram footer noise that survives parsing
+function cleanTrailingNoise(content) {
+  if (!content) return content;
+  return content
+    .replace(/\n*Please open Telegram to view this post[\s\S]*$/i, '')
+    .replace(/\n*VIEW IN TELEGRAM\s*$/i, '')
+    .replace(/\n*📎\s*file\s*$/i, '')
+    .trim();
+}
+
+// Posts that are pure noise: pinned-video service messages, paid ads, channel
+// promos, telegram-restricted-content placeholders. Drop them entirely.
+function isJunkPost(content) {
+  if (!content) return true;
+  const t = content.trim();
+  if (t.length < 10) return true;
+
+  // Service messages
+  if (/\bpinned (?:a |the )?(?:video|message|post|photo|file|audio)\b/i.test(t)) return true;
+  if (/^[^\n]{0,80}joined (?:the )?(?:channel|group)\b/im.test(t)) return true;
+
+  // Ad / promo markers
+  if (/#ad\b/i.test(t)) return true;
+  if (/\bInsideAd\b/i.test(t)) return true;
+  if (/\bTickBit\b/i.test(t)) return true;
+  if (/welcome bonus/i.test(t)) return true;
+  if (/grab it while/i.test(t)) return true;
+  if (/per[- ]second profit/i.test(t)) return true;
+  if (/start and claim/i.test(t)) return true;
+  if (/no conditions\.?\s*no deposit/i.test(t)) return true;
+
+  // Telegram-restricted placeholder
+  if (/^please open telegram/i.test(t)) return true;
+
+  // Pure attachment marker
+  if (/^📎\s*file\s*$/i.test(t)) return true;
+
+  return false;
+}
 let intelCache = null;
 let intelFetchedAt = 0;
 
@@ -456,8 +496,12 @@ async function fetchIntel() {
   results.forEach((r, i) => {
     const slug = INTEL_SLUGS[i];
     if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-      sources.push({ slug, count: r.value.length, ok: true });
-      all.push(...r.value);
+      // strip telegram footer noise, drop junk/ad/service posts entirely
+      const cleaned = r.value
+        .map((m) => ({ ...m, content: cleanTrailingNoise(m.content) }))
+        .filter((m) => !isJunkPost(m.content));
+      sources.push({ slug, raw: r.value.length, count: cleaned.length, ok: true });
+      all.push(...cleaned);
     } else {
       sources.push({ slug, count: 0, ok: false, error: r.reason?.message || String(r.reason) });
     }
