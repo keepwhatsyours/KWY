@@ -316,17 +316,29 @@ app.get('/burpboard', async (_req, res) => {
 function tgHtmlToText(html) {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_, url, text) => {
-      const cleanText = text.replace(/<[^>]+>/g, '').trim();
-      // If text equals URL, just keep URL. Otherwise show "text URL" so the
-      // site's linkify can wrap the URL into a clickable link.
-      if (!cleanText || cleanText === url) return url;
-      return `${cleanText} ${url}`;
-    })
-    .replace(/<tg-emoji[^>]*>([\s\S]*?)<\/tg-emoji>/gi, '$1')
+    // <a> tags: keep visible text only, drop URLs entirely (no external links in INTEL FEED)
+    .replace(/<a\s[^>]*>([\s\S]*?)<\/a>/gi, (_, text) =>
+      text.replace(/<[^>]+>/g, '').trim()
+    )
+    // Telegram custom emojis: keep the unicode fallback character only
+    .replace(/<tg-emoji[^>]*>([\s\S]*?)<\/tg-emoji>/gi, (_, inner) =>
+      inner.replace(/<[^>]+>/g, '').trim()
+    )
+    // strip every other tag
     .replace(/<[^>]+>/g, '')
+    // any bare URLs that survived
+    .replace(/https?:\/\/\S+/g, '')
+    // named entities
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    // numeric entities (e.g. &#33; -> !)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    // tidy whitespace left by removals
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 async function fetchTelegramChannel(slug, max = 30) {
@@ -359,13 +371,14 @@ async function fetchTelegramChannel(slug, max = 30) {
     const timeMatch = inner.match(/<time[^>]*\bdatetime="([^"]+)"/);
     const timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();
 
-    const photos = [...inner.matchAll(/background-image:url\('([^']+)'\)/g)].map(p => ({
-      url: p[1], contentType: 'image/jpeg', name: null,
-    }));
-    // also <video src> for video previews
-    const videos = [...inner.matchAll(/<video[^>]*\bsrc="([^"]+)"/g)].map(v => ({
-      url: v[1], contentType: 'video/mp4', name: null,
-    }));
+    // Only the actual message photo/video wrappers — NOT custom-emoji <i> tags
+    // or sticker thumbnails which also use background-image:url.
+    const photos = [...inner.matchAll(
+      /class="[^"]*\btgme_widget_message_photo_wrap\b[^"]*"[^>]*style="[^"]*background-image:url\('([^']+)'\)/g
+    )].map(p => ({ url: p[1], contentType: 'image/jpeg', name: null }));
+    const videos = [...inner.matchAll(
+      /<video\b[^>]*\bsrc="([^"]+)"/g
+    )].map(v => ({ url: v[1], contentType: 'video/mp4', name: null }));
 
     if (!content && !photos.length && !videos.length) continue;
 
