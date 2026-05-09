@@ -374,12 +374,19 @@ function tgHtmlToText(html) {
 
 async function fetchTelegramChannel(slug, max = 30) {
   const url = `https://t.me/s/${slug}`;
-  const r = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; KWY-Bot/0.1; +https://keepwhatsyours.ai)',
-      'Accept': 'text/html,application/xhtml+xml',
-    },
-  });
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (compatible; KWY-Bot/0.1; +https://keepwhatsyours.ai)',
+    'Accept': 'text/html,application/xhtml+xml',
+  };
+  // One-shot retry on transient network errors (Render's network occasionally
+  // throws "fetch failed" for specific paths; usually resolves on retry).
+  let r;
+  try {
+    r = await fetch(url, { headers });
+  } catch (err) {
+    await new Promise((res) => setTimeout(res, 750));
+    r = await fetch(url, { headers });
+  }
   if (!r.ok) throw new Error(`telegram ${slug} http ${r.status}`);
   const html = await r.text();
 
@@ -439,7 +446,6 @@ const INTEL_SLUGS = [
   'memetakeovers',
   'Whales_CryptoCalls',
   'ShitCoinGemsCall',
-  'PEPE_Calls28',
 ];
 const INTEL_PER_CHANNEL = 20;   // pull more than we need, filter junk, then cap
 const INTEL_TOTAL = 50;         // cap merged result
