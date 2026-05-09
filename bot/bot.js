@@ -432,37 +432,76 @@ async function fetchTelegramChannel(slug, max = 30) {
   return messages.slice(0, max);
 }
 
-// ---------- ALPHASTRIKE SOL ----------
-const ALPHA_SLUG = 'AlphaStrikeSol';
-const ALPHA_TTL_MS = 5 * 60 * 1000;
-let alphaCache = null;
-let alphaFetchedAt = 0;
+// ---------- INTEL FEED (multi-channel Telegram aggregator) ----------
+const INTEL_SLUGS = [
+  'SolanaMemeCoinss',
+  'Tanjirocall',
+  'memetakeovers',
+  'Whales_CryptoCalls',
+  'ShitCoinGemsCall',
+  'PEPE_Calls28',
+];
+const INTEL_PER_CHANNEL = 10;   // pull from each channel
+const INTEL_TOTAL = 50;         // cap merged result
+const INTEL_TTL_MS = 5 * 60 * 1000;
+let intelCache = null;
+let intelFetchedAt = 0;
 
-async function getAlphaStrike() {
+async function fetchIntel() {
+  const results = await Promise.allSettled(
+    INTEL_SLUGS.map((slug) => fetchTelegramChannel(slug, INTEL_PER_CHANNEL))
+  );
+  const all = [];
+  const sources = [];
+  results.forEach((r, i) => {
+    const slug = INTEL_SLUGS[i];
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      sources.push({ slug, count: r.value.length, ok: true });
+      all.push(...r.value);
+    } else {
+      sources.push({ slug, count: 0, ok: false, error: r.reason?.message || String(r.reason) });
+    }
+  });
+  // Sort newest first by timestamp (ISO strings sort lexicographically).
+  all.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  // Dedupe by id in case any channel cross-posts.
+  const seen = new Set();
+  const messages = [];
+  for (const m of all) {
+    if (m.id && seen.has(m.id)) continue;
+    if (m.id) seen.add(m.id);
+    messages.push(m);
+    if (messages.length >= INTEL_TOTAL) break;
+  }
+  return { messages, sources };
+}
+
+async function getIntel() {
   const now = Date.now();
-  if (alphaCache && now - alphaFetchedAt < ALPHA_TTL_MS) return alphaCache;
+  if (intelCache && now - intelFetchedAt < INTEL_TTL_MS) return intelCache;
   try {
-    const messages = await fetchTelegramChannel(ALPHA_SLUG, 30);
-    alphaCache = {
+    const { messages, sources } = await fetchIntel();
+    intelCache = {
       updated: new Date().toISOString(),
-      source: `https://t.me/${ALPHA_SLUG}`,
+      sources,
       count: messages.length,
       messages,
     };
-    alphaFetchedAt = now;
-    console.log(`[ok]  alphastrike refreshed (${messages.length} messages)`);
+    intelFetchedAt = now;
+    const live = sources.filter((s) => s.ok).length;
+    console.log(`[ok]  intel refreshed (${messages.length} messages from ${live}/${sources.length} channels)`);
   } catch (err) {
-    console.warn('[warn] alphastrike fetch failed:', err.message);
+    console.warn('[warn] intel fetch failed:', err.message);
   }
-  return alphaCache;
+  return intelCache;
 }
 
-getAlphaStrike();
-setInterval(() => getAlphaStrike(), ALPHA_TTL_MS);
+getIntel();
+setInterval(() => getIntel(), INTEL_TTL_MS);
 
-app.get('/alphastrike', async (_req, res) => {
-  const data = await getAlphaStrike();
-  if (!data) return res.status(503).json({ error: 'alphastrike unavailable' });
+app.get('/intel', async (_req, res) => {
+  const data = await getIntel();
+  if (!data) return res.status(503).json({ error: 'intel unavailable' });
   res.set('Cache-Control', 'public, max-age=60');
   res.json(data);
 });
@@ -470,10 +509,10 @@ app.get('/alphastrike', async (_req, res) => {
 app.get('/', (_req, res) => {
   res.type('text/plain').send(
     `KEEPWHATSYOURS.AI feed bot\n\n` +
-      `GET /feed         last ${MAX} messages from channel ${CHANNEL_ID}\n` +
-      `GET /alphastrike  latest posts from t.me/${ALPHA_SLUG}\n` +
-      `GET /burpboard    latest "Best performing tokens | Last 24H" from t.me/burpboard\n` +
-      `GET /health       status\n`
+      `GET /feed       last ${MAX} messages from channel ${CHANNEL_ID}\n` +
+      `GET /intel      merged feed from ${INTEL_SLUGS.length} Telegram channels\n` +
+      `GET /burpboard  latest "Best performing tokens | Last 24H" from t.me/burpboard\n` +
+      `GET /health     status\n`
   );
 });
 

@@ -1453,13 +1453,13 @@ async function pollFeed(){
   }
 }
 
-// Poll the Telegram-driven /alphastrike for INTEL FEED.
-const ALPHA_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/alphastrike") : "";
-const ALPHA_POLL_MS = 60_000;
-async function pollAlphaStrike() {
-  if (!ALPHA_URL) { renderFeedOffline(); return; }
+// Poll the multi-channel Telegram /intel endpoint for INTEL FEED.
+const INTEL_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/intel") : "";
+const INTEL_POLL_MS = 60_000;
+async function pollIntelFeed() {
+  if (!INTEL_URL) { renderFeedOffline(); return; }
   try {
-    const r = await fetch(ALPHA_URL, { cache: "no-store" });
+    const r = await fetch(INTEL_URL, { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
     const msgs = Array.isArray(data) ? data : (data.messages || []);
@@ -1572,10 +1572,10 @@ function startBurpboardPolling() {
 }
 function startFeedPolling(){
   pollFeed();
-  pollAlphaStrike();
+  pollIntelFeed();
   if (FEED_URL) {
     setInterval(pollFeed, FEED_POLL_MS);
-    setInterval(pollAlphaStrike, ALPHA_POLL_MS);
+    setInterval(pollIntelFeed, INTEL_POLL_MS);
   }
 }
 
