@@ -313,6 +313,24 @@ app.get('/burpboard', async (_req, res) => {
 // Scrapes t.me/s/<slug> and shapes posts into the same {id, author, content,
 // timestamp, attachments, embeds} format the Discord /feed uses, so the site's
 // existing INTEL FEED renderer works without modification.
+// Drop "🔸Join Automated trading🔸" / "🔹Strategy results🔹" style promo lines
+// AlphaStrikeSol appends to every post.
+function stripPromoLines(content) {
+  if (!content) return content;
+  return content
+    .split('\n')
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return true; // keep blanks for paragraph spacing
+      // Lines bracketed by the orange/blue diamond emojis (🔸 U+1F538, 🔹 U+1F539)
+      if (/^[\u{1F538}\u{1F539}][\s\S]*[\u{1F538}\u{1F539}]\s*$/u.test(t)) return false;
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function tgHtmlToText(html) {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -366,7 +384,7 @@ async function fetchTelegramChannel(slug, max = 30) {
 
     // Match the message text div (avoid greedy match into footer/reactions).
     const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
-    const content = textMatch ? tgHtmlToText(textMatch[1]).trim() : '';
+    const content = textMatch ? stripPromoLines(tgHtmlToText(textMatch[1]).trim()) : '';
 
     const timeMatch = inner.match(/<time[^>]*\bdatetime="([^"]+)"/);
     const timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();
