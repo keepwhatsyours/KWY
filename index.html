@@ -1182,10 +1182,10 @@ function renderMarketScan(md) {
 }
 
 function renderFlagHistory(md) {
-  // flatten all flags newest-first
+  // flatten all flags and sort newest-first by timestamp
   const rows = [];
   for (const p of md.posts) for (const c of p.coins) rows.push(c);
-  // already newest-first because posts came newest-first
+  rows.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = rows.slice(0, 80).map(r => {
     const ts = new Date(r.ts);
