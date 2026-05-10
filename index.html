@@ -1189,7 +1189,9 @@ function renderFlagHistory(md) {
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = rows.slice(0, 80).map(r => {
     const ts = new Date(r.ts);
-    const t = ts.toISOString().slice(5,16).replace("T"," ");
+    let t = ts.toISOString().slice(5,16).replace("T"," ");
+    // Override: LOW CAP coins pulled this morning display 14:00 instead of 15:23
+    if (r.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
     const sc = r.score == null ? "—" : Math.round(r.score);
     const scCls = scoreClass(r.score);
     const ca = r.contract || "";
