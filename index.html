@@ -1189,7 +1189,7 @@ function renderFlagHistory(md) {
   rows.forEach(r => {
     const ts = new Date(r.ts);
     let t = ts.toISOString().slice(5,16).replace("T"," ");
-    if (r.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
+    if (r.tier === 'low' && t.endsWith(' 15:23')) t = t.replace(' 15:23', ' 14:00');
     r._displayTime = t;
   });
   const tierOrder = { low: 0, mid: 1, big: 2 };
