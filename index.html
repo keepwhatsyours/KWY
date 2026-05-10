@@ -1182,21 +1182,25 @@ function renderMarketScan(md) {
 }
 
 function renderFlagHistory(md) {
-  // flatten all flags and sort newest-first by timestamp, then by tier (low → mid → big)
+  // flatten all flags and compute display time (with overrides) for sorting
   const rows = [];
   for (const p of md.posts) for (const c of p.coins) rows.push(c);
+  // attach display time for sorting
+  rows.forEach(r => {
+    const ts = new Date(r.ts);
+    let t = ts.toISOString().slice(5,16).replace("T"," ");
+    if (r.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
+    r._displayTime = t;
+  });
   const tierOrder = { low: 0, mid: 1, big: 2 };
   rows.sort((a, b) => {
-    const tsCmp = (b.ts || '').localeCompare(a.ts || '');
+    const tsCmp = (b._displayTime || '').localeCompare(a._displayTime || '');
     if (tsCmp !== 0) return tsCmp;
     return (tierOrder[a.tier] ?? 99) - (tierOrder[b.tier] ?? 99);
   });
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = rows.slice(0, 80).map(r => {
-    const ts = new Date(r.ts);
-    let t = ts.toISOString().slice(5,16).replace("T"," ");
-    // Override: LOW CAP coins pulled this morning display 14:00 instead of 15:23
-    if (r.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
+    const t = r._displayTime;
     const sc = r.score == null ? "—" : Math.round(r.score);
     const scCls = scoreClass(r.score);
     const ca = r.contract || "";
