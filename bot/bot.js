@@ -344,6 +344,35 @@ function stripPromoLines(content) {
     .trim();
 }
 
+// Extract Chart / Twitter / Telegram / Website links from a message's raw HTML
+// before tgHtmlToText nukes all URLs. Falls back to building a Dexscreener chart
+// link from any Solana-style contract found in the cleaned text.
+function extractMessageLinks(rawHtml, cleanedContent) {
+  const links = {};
+  const candidate = (label, url) => {
+    if (!links[label]) links[label] = url;
+  };
+  if (rawHtml) {
+    for (const m of rawHtml.matchAll(/<a[^>]*href="([^"]+)"[^>]*>/gi)) {
+      const u = m[1].trim();
+      if (!u || u.startsWith('mailto:')) continue;
+      if (/(?:^|\/\/)(?:www\.)?(?:twitter\.com|x\.com)\//i.test(u)) candidate('twitter', u);
+      else if (/(?:^|\/\/)(?:www\.)?t\.me\//i.test(u)) candidate('telegram', u);
+      else if (/dexscreener|gmgn|birdeye|photon-sol|solscan|pump\.fun|dextools/i.test(u)) candidate('chart', u);
+      else if (/^https?:\/\//i.test(u) &&
+               !/cdn|telegram\.org|telegra\.ph|tdesktop\.com/i.test(u)) {
+        candidate('website', u);
+      }
+    }
+  }
+  // Fallback: derive a Dexscreener chart from a Solana address in the body.
+  if (!links.chart && cleanedContent) {
+    const caMatch = cleanedContent.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/);
+    if (caMatch) links.chart = `https://dexscreener.com/solana/${caMatch[0]}`;
+  }
+  return Object.keys(links).length ? links : null;
+}
+
 function tgHtmlToText(html) {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -404,9 +433,11 @@ async function fetchTelegramChannel(slug, max = 30) {
 
     // Match the message text div (avoid greedy match into footer/reactions).
     const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
+    const rawHtml = textMatch ? textMatch[1] : '';
     const content = textMatch
-      ? linkifyGmgnChart(stripPromoLines(tgHtmlToText(textMatch[1]).trim()))
+      ? linkifyGmgnChart(stripPromoLines(tgHtmlToText(rawHtml).trim()))
       : '';
+    const links = extractMessageLinks(rawHtml, content);
 
     const timeMatch = inner.match(/<time[^>]*\bdatetime="([^"]+)"/);
     const timestamp = timeMatch ? timeMatch[1] : new Date().toISOString();
@@ -431,6 +462,7 @@ async function fetchTelegramChannel(slug, max = 30) {
       timestamp,
       attachments: [...photos, ...videos],
       embeds: [],
+      links,
     });
   }
 
