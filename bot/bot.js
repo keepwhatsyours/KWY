@@ -344,6 +344,27 @@ function stripPromoLines(content) {
     .trim();
 }
 
+// Strip social link labels that survive as plain text after tgHtmlToText removes
+// the <a> tags (e.g., "✅/Chart:", "💬/Twitter:", "🌐/Website:", "✈️/Telegram:").
+// These are redundant because the same links are rendered as pill buttons.
+function stripSocialLabels(content) {
+  if (!content) return content;
+  return content
+    .split('\n')
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return true;
+      // Remove lines that are just social link labels with empty content.
+      // Matches: /Chart: ✅/Chart: 💬/Twitter: 🌐/Website: ✈️/Telegram:
+      // And shorthand label rows like: 🍆 DEX ✈️ TG 🌐 WEB 🪙 X
+      if (/^[📊🦅✅🍆💬𝕏🐣✈️🌐🔗🪙📈📱🐦\s]*(?:\/|\b)(?:Chart|Twitter|Telegram|Website|Dex|TG|WEB|X)\b[:：]?[\s📊🦅✅🍆💬𝕏🐣✈️🌐🔗🪙📈📱🐦]*$/i.test(t)) return false;
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Extract Chart / Twitter / Telegram / Website links from a message's raw HTML
 // before tgHtmlToText nukes all URLs. Falls back to building a Dexscreener chart
 // link from any Solana-style contract found in the cleaned text.
@@ -438,7 +459,7 @@ async function fetchTelegramChannel(slug, max = 30) {
     const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
     const rawHtml = textMatch ? textMatch[1] : '';
     const content = textMatch
-      ? linkifyGmgnChart(stripPromoLines(tgHtmlToText(rawHtml).trim()))
+      ? linkifyGmgnChart(stripSocialLabels(stripPromoLines(tgHtmlToText(rawHtml).trim())))
       : '';
     const links = extractMessageLinks(rawHtml, content);
 
