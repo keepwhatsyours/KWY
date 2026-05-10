@@ -357,7 +357,10 @@ function extractMessageLinks(rawHtml, cleanedContent) {
       const u = m[1].trim();
       if (!u || u.startsWith('mailto:')) continue;
       if (/(?:^|\/\/)(?:www\.)?(?:twitter\.com|x\.com)\//i.test(u)) candidate('twitter', u);
-      else if (/(?:^|\/\/)(?:www\.)?t\.me\//i.test(u)) candidate('telegram', u);
+      else if (/(?:^|\/\/)(?:www\.)?t\.me\//i.test(u)) {
+        if (/InsideAds/i.test(u)) continue; // skip sponsored ad deeplinks
+        candidate('telegram', u);
+      }
       else if (/dexscreener|gmgn|birdeye|photon-sol|solscan|pump\.fun|dextools/i.test(u)) candidate('chart', u);
       else if (/^https?:\/\//i.test(u) &&
                !/cdn|telegram\.org|telegra\.ph|tdesktop\.com/i.test(u)) {
