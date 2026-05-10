@@ -511,21 +511,19 @@
     </div>
   </div>
 
-  <!-- FLAG HISTORY — every coin flag from Discord, newest first -->
+  <!-- BIGGEST WINS — highest gain from first flag (called at) to ATH -->
   <div class="panel">
-    <h2>FLAG HISTORY <span class="meta" id="tr-meta"></span></h2>
+    <h2>BIGGEST WINS <span class="meta" id="tr-meta"></span></h2>
     <div style="overflow-x:auto">
       <table id="track">
         <thead>
           <tr>
-            <th>TIME</th>
-            <th>TIER</th>
             <th>SYM</th>
-            <th class="num">MCAP</th>
-            <th class="num">VOL 24H</th>
-            <th class="num">SCORE</th>
-            <th class="num">DEGENS</th>
-            <th>RISK</th>
+            <th class="num">CALLED AT</th>
+            <th class="num">ATH</th>
+            <th class="num">GAIN</th>
+            <th>TIER</th>
+            <th>WHEN</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1182,46 +1180,55 @@ function renderMarketScan(md) {
 }
 
 function renderFlagHistory(md) {
-  // flatten all flags and compute display time (with overrides) for sorting
-  const rows = [];
-  for (const p of md.posts) for (const c of p.coins) rows.push(c);
-  // attach display time for sorting
-  rows.forEach(r => {
-    const ts = new Date(r.ts);
+  // Compute biggest wins: per contract, first flag mcap → highest mcap ever reached (ATH)
+  const wins = [];
+  for (const [contract, flags] of md.flagsByContract) {
+    if (!flags.length) continue;
+    // Sort by timestamp ascending to find first flag
+    const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+    const first = sorted[0];
+    // Find ATH = highest mcap across all flags for this coin
+    const ath = sorted.reduce((best, f) => {
+      const m = f.mcap ?? 0;
+      return m > best.mcap ? { mcap: m, ts: f.ts } : best;
+    }, { mcap: 0, ts: first.ts });
+    if (!first.mcap || ath.mcap <= first.mcap) continue; // skip if no gain
+    const gain = ((ath.mcap - first.mcap) / first.mcap) * 100;
+    const ts = new Date(first.ts);
     let t = ts.toISOString().slice(5,16).replace("T"," ");
-    if (r.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
-    r._displayTime = t;
-  });
-  const tierOrder = { low: 0, mid: 1, big: 2 };
-  rows.sort((a, b) => {
-    const tsCmp = (b._displayTime || '').localeCompare(a._displayTime || '');
-    if (tsCmp !== 0) return tsCmp;
-    return (tierOrder[a.tier] ?? 99) - (tierOrder[b.tier] ?? 99);
-  });
+    if (first.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
+    wins.push({
+      symbol: first.symbol,
+      name: first.name || '',
+      tier: first.tier,
+      contract: contract,
+      calledAt: first.mcap,
+      ath: ath.mcap,
+      gain,
+      when: t,
+    });
+  }
+  // Sort by gain descending
+  wins.sort((a, b) => b.gain - a.gain);
   const tbody = document.querySelector("#track tbody");
-  tbody.innerHTML = rows.slice(0, 80).map(r => {
-    const t = r._displayTime;
-    const sc = r.score == null ? "—" : Math.round(r.score);
-    const scCls = scoreClass(r.score);
-    const ca = r.contract || "";
-    // click-to-copy on the symbol cell
+  tbody.innerHTML = wins.slice(0, 80).map(w => {
+    const ca = w.contract || "";
+    const gainCls = w.gain >= 0 ? "pos" : "neg";
     const symCell = ca
-      ? `<td class="sym-cell" title="click to copy contract: ${escapeHTML(ca)}" data-ca="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.querySelector('b').textContent;el.querySelector('b').textContent='copied ✓';el.classList.add('copied');setTimeout(function(){el.querySelector('b').textContent=o;el.classList.remove('copied');},1100);})(this)"><b>$${escapeHTML(r.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(r.name||"")}</div></td>`
-      : `<td><b>$${escapeHTML(r.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(r.name||"")}</div></td>`;
+      ? `<td class="sym-cell" title="click to copy contract: ${escapeHTML(ca)}" data-ca="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.querySelector('b').textContent;el.querySelector('b').textContent='copied ✓';el.classList.add('copied');setTimeout(function(){el.querySelector('b').textContent=o;el.classList.remove('copied');},1100);})(this)"><b>$${escapeHTML(w.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(w.name)}</div></td>`
+      : `<td><b>$${escapeHTML(w.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(w.name)}</div></td>`;
     return `
       <tr>
-        <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${t}</td>
-        <td><span class="tag tier-${r.tier}">${tierLabel[r.tier]}</span></td>
         ${symCell}
-        <td class="num">${fmtCompact(r.mcap)}</td>
-        <td class="num">${fmtCompact(r.volume24h)}</td>
-        <td class="num">${scCls ? `<span class="score ${scCls}">${sc}</span>` : `<span style="color:var(--green-dim)">—</span>`}</td>
-        <td class="num">${fmtCount(r.degens)}</td>
-        <td style="color:#9ad99a;font-size:11px">${escapeHTML((r.risk||"").slice(0,38))}</td>
+        <td class="num">${fmtCompact(w.calledAt)}</td>
+        <td class="num">${fmtCompact(w.ath)}</td>
+        <td class="num ${gainCls}">${w.gain >= 0 ? '+' : ''}${w.gain.toFixed(1)}%</td>
+        <td><span class="tag tier-${w.tier}">${tierLabel[w.tier]}</span></td>
+        <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${w.when}</td>
       </tr>
     `;
   }).join("");
-  document.getElementById("tr-meta").textContent = `${rows.length} flags logged · showing newest 80 · click symbol to copy CA`;
+  document.getElementById("tr-meta").textContent = `${wins.length} tracked · showing top 80 by gain`;
 }
 
 /* compute per-token MCAP change for ROLLING LAST 24 HOURS:
