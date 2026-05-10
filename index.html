@@ -1182,10 +1182,15 @@ function renderMarketScan(md) {
 }
 
 function renderFlagHistory(md) {
-  // flatten all flags and sort newest-first by timestamp
+  // flatten all flags and sort newest-first by timestamp, then by tier (low → mid → big)
   const rows = [];
   for (const p of md.posts) for (const c of p.coins) rows.push(c);
-  rows.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+  const tierOrder = { low: 0, mid: 1, big: 2 };
+  rows.sort((a, b) => {
+    const tsCmp = (b.ts || '').localeCompare(a.ts || '');
+    if (tsCmp !== 0) return tsCmp;
+    return (tierOrder[a.tier] ?? 99) - (tierOrder[b.tier] ?? 99);
+  });
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = rows.slice(0, 80).map(r => {
     const ts = new Date(r.ts);
