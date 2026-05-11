@@ -1565,7 +1565,7 @@ function renderFeed(messages){
   }, 1800);
 
   document.getElementById("feed-meta").textContent =
-    `${messages.length} msgs · live · last sync ${new Date().toLocaleTimeString(undefined,{hour12:false})}`;
+    `${messages.length} msgs · live · last sync ${new Date().toISOString().slice(11,19)} UTC`;
 }
 
 // Poll the Discord-driven /feed for the scan panels (MARKET SCAN, FLAG HISTORY,
