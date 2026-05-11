@@ -1529,13 +1529,12 @@ function renderFeed(messages){
         ${e.description ? `<div class="ed">${linkify(escapeHTML(e.description))}</div>`:""}
       </div>`).join("");
 
-    // Pill row of categorized links from this post (chart / twitter / telegram / website)
+    // Pill row of categorized links from this post (chart / twitter / website)
     const linkPills = (() => {
       const L = m.links || {};
       const items = [
         L.chart    ? { url: L.chart,    label: "📊 chart"    } : null,
         L.twitter  ? { url: L.twitter,  label: "𝕏 twitter"   } : null,
-        L.telegram ? { url: L.telegram, label: "💬 telegram" } : null,
         L.website  ? { url: L.website,  label: "🌐 site"     } : null,
       ].filter(Boolean);
       if (!items.length) return "";
