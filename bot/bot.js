@@ -524,18 +524,7 @@ async function fetchTelegramChannel(slug, max = 30) {
 
 // ---------- INTEL FEED (multi-channel Telegram aggregator) ----------
 const INTEL_SLUGS = [
-  'SolanaMemeCoinss',
-  'Tanjirocall',
-  'memetakeovers',
-  'Whales_CryptoCalls',
-  'ShitCoinGemsCall',
-  'MCMCALLOUTS',
-  'Memecoins_Aicoins_Crypto',
-  'myroSOL',
   'SolanaAlphaAlert',
-  'crypto_nft_web3_news',
-  'memecoink7',
-  'memecoinz',
 ];
 const INTEL_PER_CHANNEL = 20;   // pull more than we need, filter junk, then cap
 const INTEL_TOTAL = 50;         // cap merged result
