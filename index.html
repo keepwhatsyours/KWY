@@ -1541,7 +1541,7 @@ async function pollFeed(){
 
 // Poll the multi-channel Telegram /intel endpoint for INTEL FEED.
 const INTEL_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/intel") : "";
-const INTEL_POLL_MS = 60_000;
+const INTEL_POLL_MS = 15_000; // 15s — keep intel feed fresh
 async function pollIntelFeed() {
   if (!INTEL_URL) { renderFeedOffline(); return; }
   try {
