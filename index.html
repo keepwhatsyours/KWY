@@ -1231,7 +1231,7 @@ function renderMarketScan(md) {
   }).join("");
   document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
   document.getElementById("scan-meta").textContent =
-    `${md.totalScans} scans · ${md.totalFlags} flags · ${md.flagCounts.size} unique`;
+    `${md.totalScans} scans`;
 }
 
 function renderFlagHistory(md) {
