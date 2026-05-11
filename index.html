@@ -1218,14 +1218,22 @@ function renderMarketScan(md) {
   const sections = tiers.map(t => {
     const post = md.latestByTier[t];
     if (!post) return "";
+    // dedupe coins within this scan by contract (or symbol fallback)
+    const seen = new Set();
+    const uniqueCoins = post.coins.filter(c => {
+      const key = c.contract || c.symbol;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     return `
       <div class="tier-section">
         <div class="tier-head">
           <span class="badge ${t}">${tierLabel[t]}</span>
           <span>${tierBlurb[t]}</span>
-          <span class="when">${fmtAgo(post.ts)} · ${post.coins.length} coin${post.coins.length===1?"":"s"}</span>
+          <span class="when">${fmtAgo(post.ts)} · ${uniqueCoins.length} coin${uniqueCoins.length===1?"":"s"}</span>
         </div>
-        <div class="coin-grid">${post.coins.map(c => coinCard({...c, ts: post.ts}, t)).join("")}</div>
+        <div class="coin-grid">${uniqueCoins.map(c => coinCard({...c, ts: post.ts}, t)).join("")}</div>
       </div>
     `;
   }).join("");
