@@ -1266,7 +1266,7 @@ function renderFlagHistory(md) {
   // Sort by gain descending
   wins.sort((a, b) => b.gain - a.gain);
   const tbody = document.querySelector("#track tbody");
-  tbody.innerHTML = wins.slice(0, 80).map(w => {
+  tbody.innerHTML = wins.slice(0, 10).map(w => {
     const ca = w.contract || "";
     const gainCls = w.gain >= 0 ? "pos" : "neg";
     const symCell = ca
@@ -1281,7 +1281,7 @@ function renderFlagHistory(md) {
       </tr>
     `;
   }).join("");
-  document.getElementById("tr-meta").textContent = `${wins.length} tracked · showing top 80 by gain`;
+  document.getElementById("tr-meta").textContent = `${wins.length} tracked · showing top 10 by gain`;
 }
 
 /* compute per-token MCAP change for ROLLING LAST 24 HOURS:
