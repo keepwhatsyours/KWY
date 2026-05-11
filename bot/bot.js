@@ -359,6 +359,11 @@ function stripPromoLines(content) {
       if (!t) return true; // keep blanks for paragraph spacing
       // Lines bracketed by the orange/blue diamond emojis (🔸 U+1F538, 🔹 U+1F539)
       if (/^[\u{1F538}\u{1F539}][\s\S]*[\u{1F538}\u{1F539}]\s*$/u.test(t)) return false;
+      // Premium/promo spam lines
+      if (/👑\s*PREMIUM\s+INSIDERS?/i.test(t)) return false;
+      if (/⚡\s*\d+%\s*Off?/i.test(t)) return false;
+      if (/\b[A-Z0-9]{5,}\b.*\(?Expiring\s+Soon\)?/i.test(t)) return false;
+      if (/@[A-Za-z0-9_]*(?:Bot|Access|Premium|Insider)/i.test(t)) return false;
       return true;
     })
     .join('\n')
