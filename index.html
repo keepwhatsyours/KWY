@@ -199,6 +199,40 @@
   .sym-cell:hover{background:rgba(0,255,65,.08)}
   .sym-cell.copied{background:rgba(0,255,65,.18)}
 
+  /* skeleton loading */
+  .skeleton{
+    background:linear-gradient(90deg, rgba(0,255,65,.03) 25%, rgba(0,255,65,.08) 50%, rgba(0,255,65,.03) 75%);
+    background-size:200% 100%;
+    animation:skeleton-shimmer 1.5s infinite;
+    border-radius:2px;
+  }
+  @keyframes skeleton-shimmer{
+    0%{background-position:200% 0}
+    100%{background-position:-200% 0}
+  }
+
+  /* content fade-in */
+  .fade-in{
+    animation:fadeIn .4s ease-out;
+  }
+  @keyframes fadeIn{
+    from{opacity:0;transform:translateY(4px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  /* scroll-to-top button */
+  #scroll-top{
+    position:fixed;bottom:24px;right:24px;z-index:9997;
+    width:40px;height:40px;border-radius:3px;
+    background:rgba(0,255,65,.08);border:1px solid var(--green-deep);
+    color:var(--green);font-family:var(--mono);font-size:18px;
+    cursor:pointer;opacity:0;pointer-events:none;
+    transition:opacity .3s, background .15s, border-color .15s;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #scroll-top.visible{opacity:1;pointer-events:auto}
+  #scroll-top:hover{background:rgba(0,255,65,.18);border-color:var(--green)}
+
   /* chart */
   .chart-wrap{position:relative;height:300px}
 
@@ -435,6 +469,18 @@
     text-align:center;text-transform:uppercase;
     border-top:1px solid var(--green-deep);padding-top:14px;
   }
+
+  /* data freshness indicator */
+  .freshness{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:10px;color:var(--green-dim);letter-spacing:.08em;
+  }
+  .freshness .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;
+  }
+  .freshness .dot.stale{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:none}
+  .freshness .dot.offline{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
   footer .disclaimer{color:#666;text-transform:none;letter-spacing:0;margin-top:6px;font-size:11px;line-height:1.5;max-width:760px;margin-left:auto;margin-right:auto}
 
   /* small */
@@ -539,6 +585,9 @@
     <div class="disclaimer">Disclaimer: this is not financial advice. Meme coins are extremely volatile and you can lose 100% of your capital. The picks shown here are AI-generated experiments. Do your own research.</div>
   </footer>
 </div>
+
+<!-- SCROLL TO TOP -->
+<button id="scroll-top" title="scroll to top (shortcut: Home)">▲</button>
 
 <!-- Embedded fallback so the page works even when opened via file:// -->
 <script id="picks-fallback" type="application/json">
@@ -1531,6 +1580,7 @@ async function pollFeed(){
     // Build market data and render snapshot first (instant paint).
     const md = buildMarketData(msgs);
     renderAllScanPanels(md);
+    lastFeedUpdate = Date.now();
 
     // Enrich with live Dexscreener prices, re-render.
     try {
@@ -1555,6 +1605,7 @@ async function pollIntelFeed() {
     const data = await r.json();
     const msgs = Array.isArray(data) ? data : (data.messages || []);
     renderFeed(msgs);
+    lastIntelUpdate = Date.now();
   } catch (err) {
     renderFeedError(err.message || String(err));
   }
@@ -1653,6 +1704,7 @@ async function pollBurpboard() {
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
     renderBurpboard(data);
+    lastBurpUpdate = Date.now();
   } catch (err) {
     document.getElementById("bb-meta").textContent = "// burpboard offline: " + (err.message || err);
   }
@@ -1679,6 +1731,58 @@ function tickClock(){
 }
 setInterval(tickClock, 1000);
 tickClock();
+
+/* ---------- SCROLL TO TOP ---------- */
+const scrollTopBtn = document.getElementById("scroll-top");
+window.addEventListener("scroll", () => {
+  if (window.scrollY > 400) scrollTopBtn.classList.add("visible");
+  else scrollTopBtn.classList.remove("visible");
+});
+scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+/* ---------- KEYBOARD SHORTCUTS ---------- */
+document.addEventListener("keydown", (e) => {
+  // R = force refresh all feeds
+  if (e.key === "r" || e.key === "R") {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    e.preventDefault();
+    pollFeed();
+    pollIntelFeed();
+    pollBurpboard();
+    // flash the clock green briefly to show refresh triggered
+    const clock = document.getElementById("clock");
+    clock.style.color = "var(--green)";
+    clock.style.textShadow = "0 0 12px var(--green)";
+    setTimeout(() => { clock.style.color = ""; clock.style.textShadow = ""; }, 600);
+  }
+  // Home = scroll to top
+  if (e.key === "Home") {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+/* ---------- DATA FRESHNESS INDICATOR ---------- */
+let lastFeedUpdate = 0;
+let lastIntelUpdate = 0;
+let lastBurpUpdate = 0;
+function updateFreshness() {
+  const now = Date.now();
+  const feedAge = now - lastFeedUpdate;
+  const intelAge = now - lastIntelUpdate;
+  const burpAge = now - lastBurpUpdate;
+  const maxAge = Math.max(feedAge, intelAge, burpAge);
+  const netStatus = document.getElementById("net-status");
+  if (!netStatus) return;
+  if (maxAge < 60000) {
+    netStatus.innerHTML = 'CONN: <span style="color:var(--green)">LIVE</span>';
+  } else if (maxAge < 300000) {
+    netStatus.innerHTML = 'CONN: <span style="color:var(--amber)">STALE</span>';
+  } else {
+    netStatus.innerHTML = 'CONN: <span style="color:var(--red)">OFFLINE</span>';
+  }
+}
+setInterval(updateFreshness, 5000);
 
 /* ---------- MAIN ---------- */
 (async function main(){
