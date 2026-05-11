@@ -520,7 +520,6 @@
           <tr>
             <th>SYM</th>
             <th class="num">CALLED AT</th>
-            <th class="num">ATH</th>
             <th class="num">GAIN</th>
             <th>TIER</th>
             <th>WHEN</th>
@@ -1221,7 +1220,6 @@ function renderFlagHistory(md) {
       <tr>
         ${symCell}
         <td class="num">${fmtCompact(w.calledAt)}</td>
-        <td class="num">${fmtCompact(w.ath)}</td>
         <td class="num ${gainCls}">${w.gain >= 0 ? '+' : ''}${w.gain.toFixed(1)}%</td>
         <td><span class="tag tier-${w.tier}">${tierLabel[w.tier]}</span></td>
         <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${w.when}</td>
