@@ -168,6 +168,18 @@ let burpFetchedAt = 0;
 
 const RANK_EMOJI = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
 
+// Convert compact mcap string (e.g. "82.1K", "4.3M", "6K") to raw number.
+function parseCompact(v) {
+  if (!v) return null;
+  const s = String(v).trim().replace(/,/g, '');
+  const n = parseFloat(s);
+  if (isNaN(n)) return null;
+  if (/\bK\b/i.test(s)) return n * 1e3;
+  if (/\bM\b/i.test(s)) return n * 1e6;
+  if (/\bB\b/i.test(s)) return n * 1e9;
+  return n;
+}
+
 function htmlToText(html) {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -203,18 +215,28 @@ function parseBurpPost(html) {
     const link = slice.match(/\[([^|\]]+)\|([^\]]+)\]/);
     const entry   = slice.match(/@\s*`?([\d.]+[KMB]?)`?/i)?.[1] || null;
     const current = slice.match(/➜\s*`?([\d.]+[KMB]?)`?/i)?.[1] || null;
-    const mult    = slice.match(/Δ\s*`?([\d.]+x)`?/i)?.[1] || null;
+    const mult    = slice.match(/Δ\s*`?([\d.]+x|—|-)`?/i)?.[1] || null;
     const chain   = slice.match(/`?\[(\w+)\]`?/)?.[1] || null;
     const ath     = slice.match(/ATH:\s*`?([\d.]+[KMB]?)\s*((?:🥶|💀)?)`?/iu);
 
     if (!link) continue;
+    // Compute multiplier from entry→current if text shows "—" or missing
+    let multiplier = mult;
+    if (!mult || mult === '—' || mult === '-') {
+      const e = parseCompact(entry);
+      const c = parseCompact(current);
+      if (e && c && e > 0) {
+        const computed = c / e;
+        multiplier = (computed >= 10 ? computed.toFixed(0) : computed.toFixed(1)) + 'x';
+      }
+    }
     tokens.push({
       rank: i + 1,
       symbol: link[1].trim(),
       botUrl: link[2].trim(),
       entryMcap: entry,
       currentMcap: current,
-      multiplier: mult,
+      multiplier,
       chain,
       ath: ath?.[1] || null,
       athStatus: ath?.[2] || '',
