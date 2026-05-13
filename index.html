@@ -386,6 +386,11 @@
     border:1px solid var(--green-deep);background:rgba(0,255,65,.025);
     border-radius:3px;padding:10px 12px;position:relative;
     display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+    text-decoration:none;transition:background .15s,border-color .15s,box-shadow .15s;
+  }
+  .bb-coin:hover{
+    background:rgba(0,255,65,.07);border-color:var(--green);
+    box-shadow:0 0 14px rgba(0,255,65,.12);
   }
   .bb-coin .copy-ca{
     cursor:pointer;color:var(--green-dim);
@@ -1770,8 +1775,9 @@ function renderBurpboard(data) {
   wrap.innerHTML = `<div class="bb-grid">${
     data.tokens.map(t => {
       const ca = copyableAddress(t);
+      const url = dexscreenerUrl(t);
       return `
-        <div class="bb-coin">
+        <a class="bb-coin" href="${escapeHTML(url)}" target="_blank" rel="noopener">
           <div class="rank ${rankClass(t.rank)}">${rankLabel(t.rank)}</div>
           <div class="body">
             <div class="sym">$${escapeHTML(t.symbol)}</div>
@@ -1785,7 +1791,7 @@ function renderBurpboard(data) {
             </div>
           </div>
           <div class="mult">${escapeHTML(t.multiplier||"—")}</div>
-        </div>
+        </a>
       `;
     }).join("")
   }</div>`;
