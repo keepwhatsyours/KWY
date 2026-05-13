@@ -264,6 +264,9 @@
   .coin.tier-mid{border-left:3px solid var(--amber)}
   .coin.tier-low{border-left:3px solid #ff5577}
   .coin .row1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+  .coin .meta-row{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--green-dim);margin-bottom:8px;line-height:1.4}
+  .coin .meta-row span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .coin .meta-row .label{color:var(--green);text-transform:uppercase;letter-spacing:.08em;margin-right:4px}
   .coin .mcap-banner{
     margin:6px 0 8px;padding:6px 10px;border-radius:3px;
     font-size:18px;font-weight:700;letter-spacing:.04em;text-align:center;
@@ -1121,6 +1124,16 @@ const fmtAgo = iso => {
   if (sec < 86400) return Math.round(sec/3600)+"h ago";
   return Math.round(sec/86400)+"d ago";
 };
+const fmtAge = ms => {
+  if (!ms) return "—";
+  const sec = (Date.now() - ms) / 1000;
+  if (sec < 60) return Math.round(sec) + "s";
+  if (sec < 3600) return Math.round(sec / 60) + "m";
+  if (sec < 86400) return Math.round(sec / 3600) + "h";
+  if (sec < 2592000) return Math.round(sec / 86400) + "d";
+  if (sec < 31536000) return Math.round(sec / 2592000) + "mo";
+  return Math.round(sec / 31536000) + "y";
+};
 const scoreClass = s => s == null ? "" : s >= 70 ? "s-hi" : s >= 40 ? "s-md" : "s-lo";
 const truncCA = ca => !ca ? "" : ca.length > 14 ? ca.slice(0,4) + "…" + ca.slice(-4) : ca;
 
@@ -1135,7 +1148,7 @@ function renderScanStats(md) {
   `;
 }
 
-function coinCard(c, tier) {
+function coinCard(c, tier, md) {
   // Prefer live data when available; fall back to Bubba Bot snapshot.
   const live = c.live;
   const price = live?.price ?? c.price;
@@ -1160,6 +1173,22 @@ function coinCard(c, tier) {
   const ch24 = live?.change?.["24h"];
   const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
 
+  // ATH from all historical flags for this contract
+  let athMcap = null;
+  if (md && c.contract && md.flagsByContract) {
+    const flags = md.flagsByContract.get(c.contract);
+    if (flags) {
+      athMcap = flags.reduce((best, f) => {
+        const m = f.mcap ?? f.live?.mcap ?? 0;
+        return m > best ? m : best;
+      }, 0);
+      if (athMcap <= 0) athMcap = null;
+    }
+  }
+
+  // Age from pair creation timestamp (Dexscreener)
+  const ageMs = live?.pairCreatedAt ? new Date(live.pairCreatedAt).getTime() : null;
+
   return `
     <div class="coin tier-${tier} ${isLive?"is-live":""}">
       <div class="row1">
@@ -1168,6 +1197,10 @@ function coinCard(c, tier) {
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
+      </div>
+      <div class="meta-row">
+        <span><span class="label">ATH</span>${fmtCompact(athMcap)}</span>
+        <span><span class="label">AGE</span>${fmtAge(ageMs)}</span>
       </div>
       ${mcapDelta != null ? `<div class="mcap-banner ${mcapDelta>=0?"pos":"neg"}">${mcapDelta>=0?"▲ +":"▼ "}${Math.abs(mcapDelta).toFixed(1)}%</div>` : ""}
       ${(() => {
@@ -1214,15 +1247,14 @@ function coinCard(c, tier) {
 }
 
 function renderMarketScan(md) {
-  const tiers = ["big","mid","low"];
+  const tiers = ["low","mid","big"];
+  const seen = new Set();                 // ← cross-tier dedupe: lower tier wins
   const sections = tiers.map(t => {
     const post = md.latestByTier[t];
     if (!post) return "";
-    // dedupe coins within this scan by contract (or symbol fallback)
-    const seen = new Set();
     const uniqueCoins = post.coins.filter(c => {
       const key = c.contract || c.symbol;
-      if (seen.has(key)) return false;
+      if (seen.has(key)) return false;    // skip if already shown in a lower tier
       seen.add(key);
       return true;
     });
@@ -1233,7 +1265,7 @@ function renderMarketScan(md) {
           <span>${tierBlurb[t]}</span>
           <span class="when">${fmtAgo(post.ts)} · ${uniqueCoins.length} coin${uniqueCoins.length===1?"":"s"}</span>
         </div>
-        <div class="coin-grid">${uniqueCoins.map(c => coinCard({...c, ts: post.ts}, t)).join("")}</div>
+        <div class="coin-grid">${uniqueCoins.map(c => coinCard({...c, ts: post.ts}, t, md)).join("")}</div>
       </div>
     `;
   }).join("");
@@ -1477,6 +1509,7 @@ const fmtTs = iso => {
 
 let feedSeen = new Set();
 let feedFirstRender = true;
+let feedMessages = []; // Discord /feed messages — fallback for Intel Feed
 
 function renderFeedOffline(){
   const f = document.getElementById("feed");
@@ -1592,6 +1625,9 @@ async function pollFeed(){
     renderAllScanPanels(md);
     lastFeedUpdate = Date.now();
 
+    // Store Discord feed messages for Intel Feed fallback
+    feedMessages = msgs;
+
     // Enrich with live Dexscreener prices, re-render.
     try {
       await enrichWithLive(md);
@@ -1608,16 +1644,46 @@ async function pollFeed(){
 const INTEL_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/intel") : "";
 const INTEL_POLL_MS = 15_000; // 15s — keep intel feed fresh
 async function pollIntelFeed() {
-  if (!INTEL_URL) { renderFeedOffline(); return; }
-  try {
-    const r = await fetch(INTEL_URL, { cache: "no-store" });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const data = await r.json();
-    const msgs = Array.isArray(data) ? data : (data.messages || []);
+  let msgs = [];
+
+  // 1. Try live /intel endpoint
+  if (INTEL_URL) {
+    try {
+      const r = await fetch(INTEL_URL, { cache: "no-store" });
+      if (r.ok) {
+        const data = await r.json();
+        msgs = Array.isArray(data) ? data : (data.messages || []);
+      }
+    } catch (err) {
+      console.warn("intel live fetch failed:", err.message || err);
+    }
+  }
+
+  // 2. Fallback to Discord feed messages
+  if (!msgs.length && feedMessages.length) {
+    msgs = feedMessages;
+  }
+
+  // 3. Fallback to local intel snapshot (bundled with the site)
+  if (!msgs.length) {
+    try {
+      const r = await fetch("intel-snapshot.json", { cache: "no-store" });
+      if (r.ok) {
+        const data = await r.json();
+        msgs = Array.isArray(data) ? data : (data.messages || []);
+      }
+    } catch (err) {
+      console.warn("intel snapshot fallback failed:", err.message || err);
+    }
+  }
+
+  if (msgs.length) {
     renderFeed(msgs);
     lastIntelUpdate = Date.now();
-  } catch (err) {
-    renderFeedError(err.message || String(err));
+  } else if (!INTEL_URL) {
+    renderFeedOffline();
+  } else {
+    renderFeedError("live /intel unreachable and no snapshot available");
   }
 }
 
