@@ -1199,7 +1199,16 @@ function coinCard(c, tier, md) {
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
       </div>
-      ${mcapDelta != null ? `<div class="mcap-banner ${mcapDelta>=0?"pos":"neg"}">${mcapDelta>=0?"▲ +":"▼ "}${Math.abs(mcapDelta).toFixed(1)}%</div>` : ""}
+      ${(() => {
+        // Always show the banner so it doesn't flicker in/out.
+        // Prefer live mcap delta; fall back to snapshot 5m change.
+        const delta = mcapDelta ?? c.change["5m"];
+        const cls = delta != null ? (delta >= 0 ? "pos" : "neg") : "pos";
+        const txt = delta != null
+          ? `${delta >= 0 ? "▲ +" : "▼ "}${Math.abs(delta).toFixed(1)}%`
+          : "—";
+        return `<div class="mcap-banner ${cls}">${txt}</div>`;
+      })()}
       ${(() => {
         // Parse "10,681 (Buy/Sell: 1.22x)" into separate count + ratio fields.
         let swapCount = null, swapRatio = null;
