@@ -1782,7 +1782,6 @@ function renderBurpboard(data) {
             </div>
             <div class="meta">
               ${t.chain ? `<span class="chain ${escapeHTML(t.chain)}">${escapeHTML(t.chain)}</span>` : ""}
-              ${ca ? `<span class="copy-ca" data-ca="${escapeHTML(ca)}" title="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.textContent;el.textContent='copied ✓';setTimeout(function(){el.textContent=o;},1100);})(this)"><b>$${escapeHTML(t.symbol)}</b></span>` : ""}
             </div>
           </div>
           <div class="mult">${escapeHTML(t.multiplier||"—")}</div>
