@@ -1760,6 +1760,7 @@ function renderBurpboard(data) {
             </div>
             <div class="meta">
               ${t.chain ? `<span class="chain ${escapeHTML(t.chain)}">${escapeHTML(t.chain)}</span>` : ""}
+              ${t.ath ? `<span>ATH ${escapeHTML(t.ath)} ${escapeHTML(t.athStatus||"")}</span>` : ""}
               ${ca ? `<span class="copy-ca" data-ca="${escapeHTML(ca)}" title="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.textContent;el.textContent='copied ✓';setTimeout(function(){el.textContent=o;},1100);})(this)"><b>$${escapeHTML(t.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(t.name)}</div></span>` : ""}
               <a href="${escapeHTML(dexscreenerUrl(t))}" target="_blank" rel="noopener" style="color:var(--green-dim)">chart ↗</a>
             </div>
