@@ -6,7 +6,10 @@
 <title>KEEPWHATSYOURS.AI // meme coin ops</title>
 <meta name="description" content="Daily AI-generated meme coin picks with live track record." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0e0a'/%3E%3Ctext x='50%25' y='54%25' font-family='monospace' font-size='44' fill='%2300ff41' text-anchor='middle' font-weight='900'%3E$%3C/text%3E%3C/svg%3E" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+<link rel="preconnect" href="https://kwy.onrender.com" />
+<link rel="preconnect" href="https://api.dexscreener.com" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer fetchpriority="high"></script>
 <style>
   :root{
     --bg:#070a07;
@@ -647,16 +650,16 @@ const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
 
 /* ---------- BOOT SEQUENCE ---------- */
 const bootLines = [
-  { t: "$ ./keepwhatsyours --mode=meme --strategy=open-claw", d: 40 },
-  { t: "[boot] kernel  ........................ ok", d: 60 },
-  { t: "[boot] entropy ........................ ok", d: 60 },
-  { t: "[boot] tor circuit .................... bypassed", d: 60, cls:"warn" },
-  { t: "[net]  connecting to coingecko mainnet  ok", d: 80 },
-  { t: "[data] loading picks.json ............. ok", d: 80 },
-  { t: "[ai]   calibrating greed index ........ 73/100", d: 80 },
-  { t: "[risk] stop-loss daemon ............... armed", d: 80 },
-  { t: "                                              ", d: 40 },
-  { t: ">> SYSTEM READY. WELCOME TO KEEPWHATSYOURS.AI <<", d: 100 },
+  { t: "$ ./keepwhatsyours --mode=meme --strategy=open-claw", d: 20 },
+  { t: "[boot] kernel  ........................ ok", d: 20 },
+  { t: "[boot] entropy ........................ ok", d: 20 },
+  { t: "[boot] tor circuit .................... bypassed", d: 20, cls:"warn" },
+  { t: "[net]  connecting to coingecko mainnet  ok", d: 20 },
+  { t: "[data] loading picks.json ............. ok", d: 20 },
+  { t: "[ai]   calibrating greed index ........ 73/100", d: 20 },
+  { t: "[risk] stop-loss daemon ............... armed", d: 20 },
+  { t: "                                              ", d: 20 },
+  { t: ">> SYSTEM READY. WELCOME TO KEEPWHATSYOURS.AI <<", d: 40 },
 ];
 async function runBoot(){
   const out = document.getElementById("boot-out");
@@ -667,9 +670,9 @@ async function runBoot(){
     out.appendChild(div);
     await new Promise(r=>setTimeout(r,l.d));
   }
-  await new Promise(r=>setTimeout(r,400));
+  await new Promise(r=>setTimeout(r,150));
   document.getElementById("boot").classList.add("fade");
-  setTimeout(()=>document.getElementById("boot").remove(),900);
+  setTimeout(()=>document.getElementById("boot").remove(),600);
   document.getElementById("app").classList.add("visible");
 }
 
@@ -1885,9 +1888,30 @@ setInterval(updateFreshness, 5000);
 (async function main(){
   runBoot(); // don't await; runs in parallel
 
-  // The site is now driven entirely by the Discord feed (Bubba Bot's market scans).
-  // pollFeed() pulls /feed and calls renderAllScanPanels(messages) which fills
-  // SIGNAL STATUS, MARKET SCAN, SCAN ACTIVITY, FLAG HISTORY in addition to the raw INTEL FEED.
+  // Load local snapshots immediately so panels render instantly
+  // without waiting for the network round-trip.
+  try {
+    const [feedSnap, intelSnap] = await Promise.all([
+      fetch("feed-snapshot.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch("intel-snapshot.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    if (feedSnap?.messages?.length) {
+      const md = buildMarketData(feedSnap.messages);
+      renderAllScanPanels(md);
+      lastFeedUpdate = Date.now();
+      feedMessages = feedSnap.messages;
+      // enrich with live prices in background
+      enrichWithLive(md).then(() => renderAllScanPanels(md)).catch(() => {});
+    }
+    if (intelSnap?.messages?.length) {
+      renderFeed(intelSnap.messages);
+      lastIntelUpdate = Date.now();
+    }
+  } catch (e) {
+    console.warn("snapshot preload failed:", e);
+  }
+
+  // Start live polling after snapshots are painted.
   startFeedPolling();
   startBurpboardPolling();
 
