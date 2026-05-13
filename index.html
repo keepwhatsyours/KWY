@@ -6,7 +6,7 @@
 <title>KEEPWHATSYOURS.AI // meme coin ops</title>
 <meta name="description" content="Daily AI-generated meme coin picks with live track record." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0e0a'/%3E%3Ctext x='50%25' y='54%25' font-family='monospace' font-size='44' fill='%2300ff41' text-anchor='middle' font-weight='900'%3E$%3C/text%3E%3C/svg%3E" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 <style>
   :root{
     --bg:#070a07;
@@ -59,6 +59,8 @@
   a:hover{background:var(--green);color:#000}
 
   .wrap{max-width:1200px;margin:0 auto;padding:24px 28px 80px}
+  #app{opacity:0;transition:opacity .5s ease}
+  #app.visible{opacity:1}
   .row{display:flex;gap:16px;flex-wrap:wrap}
 
   /* top CTA */
@@ -513,7 +515,7 @@
   <div id="boot-out"></div>
 </div>
 
-<div class="wrap" id="app" style="opacity:0">
+<div class="wrap" id="app">
   <a class="cta-top" href="https://gmgn.ai/r/wahoowa" target="_blank" rel="noopener">
     ▶ START TRADING TODAY <span class="arrow">↗</span>
   </a>
@@ -633,16 +635,16 @@ const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
 
 /* ---------- BOOT SEQUENCE ---------- */
 const bootLines = [
-  { t: "$ ./keepwhatsyours --mode=meme --strategy=open-claw", d: 80 },
-  { t: "[boot] kernel  ........................ ok", d: 120 },
-  { t: "[boot] entropy ........................ ok", d: 120 },
-  { t: "[boot] tor circuit .................... bypassed", d: 120, cls:"warn" },
-  { t: "[net]  connecting to coingecko mainnet  ok", d: 160 },
-  { t: "[data] loading picks.json ............. ok", d: 160 },
-  { t: "[ai]   calibrating greed index ........ 73/100", d: 160 },
-  { t: "[risk] stop-loss daemon ............... armed", d: 160 },
-  { t: "                                              ", d: 80 },
-  { t: ">> SYSTEM READY. WELCOME TO KEEPWHATSYOURS.AI <<", d: 200 },
+  { t: "$ ./keepwhatsyours --mode=meme --strategy=open-claw", d: 40 },
+  { t: "[boot] kernel  ........................ ok", d: 60 },
+  { t: "[boot] entropy ........................ ok", d: 60 },
+  { t: "[boot] tor circuit .................... bypassed", d: 60, cls:"warn" },
+  { t: "[net]  connecting to coingecko mainnet  ok", d: 80 },
+  { t: "[data] loading picks.json ............. ok", d: 80 },
+  { t: "[ai]   calibrating greed index ........ 73/100", d: 80 },
+  { t: "[risk] stop-loss daemon ............... armed", d: 80 },
+  { t: "                                              ", d: 40 },
+  { t: ">> SYSTEM READY. WELCOME TO KEEPWHATSYOURS.AI <<", d: 100 },
 ];
 async function runBoot(){
   const out = document.getElementById("boot-out");
@@ -656,8 +658,7 @@ async function runBoot(){
   await new Promise(r=>setTimeout(r,400));
   document.getElementById("boot").classList.add("fade");
   setTimeout(()=>document.getElementById("boot").remove(),900);
-  document.getElementById("app").style.transition="opacity .6s ease";
-  document.getElementById("app").style.opacity="1";
+  document.getElementById("app").classList.add("visible");
 }
 
 /* ---------- DATA ---------- */
@@ -1197,10 +1198,6 @@ function coinCard(c, tier, md) {
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(c.score)}">${Math.round(c.score)}</div>` : ""}
-      </div>
-      <div class="meta-row">
-        <span><span class="label">ATH</span>${fmtCompact(athMcap)}</span>
-        <span><span class="label">AGE</span>${fmtAge(ageMs)}</span>
       </div>
       ${mcapDelta != null ? `<div class="mcap-banner ${mcapDelta>=0?"pos":"neg"}">${mcapDelta>=0?"▲ +":"▼ "}${Math.abs(mcapDelta).toFixed(1)}%</div>` : ""}
       ${(() => {
