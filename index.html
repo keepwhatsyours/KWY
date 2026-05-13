@@ -1216,6 +1216,8 @@ function coinCard(c, tier, md) {
       <div class="kvs">
         <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
         <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
+        <div class="kv"><span class="k">ath</span><span class="v">${fmtCompact(athMcap)}</span></div>
+        <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
         <div class="kv"><span class="k">degens</span><span class="v">${fmtCount(c.degens)}</span></div>
         <div class="kv"><span class="k">kols</span>  <span class="v">${fmtCount(c.kols)}</span></div>
@@ -1247,7 +1249,7 @@ function coinCard(c, tier, md) {
 }
 
 function renderMarketScan(md) {
-  const tiers = ["low","mid","big"];
+  const tiers = ["big","mid","low"];
   const seen = new Set();                 // ← cross-tier dedupe: lower tier wins
   const sections = tiers.map(t => {
     const post = md.latestByTier[t];
@@ -1759,7 +1761,7 @@ function renderBurpboard(data) {
             <div class="meta">
               ${t.chain ? `<span class="chain ${escapeHTML(t.chain)}">${escapeHTML(t.chain)}</span>` : ""}
               ${t.ath ? `<span>ATH ${escapeHTML(t.ath)} ${escapeHTML(t.athStatus||"")}</span>` : ""}
-              ${ca ? `<span class="copy-ca" data-ca="${escapeHTML(ca)}" title="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.textContent;el.textContent='copied ✓';setTimeout(function(){el.textContent=o;},1100);})(this)">copy CA</span>` : ""}
+              ${ca ? `<span class="copy-ca" data-ca="${escapeHTML(ca)}" title="${escapeHTML(ca)}" onclick="(function(el){navigator.clipboard.writeText(el.dataset.ca);const o=el.textContent;el.textContent='copied ✓';setTimeout(function(){el.textContent=o;},1100);})(this)"><b>$${escapeHTML(t.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(t.name)}</div></span>` : ""}
               <a href="${escapeHTML(dexscreenerUrl(t))}" target="_blank" rel="noopener" style="color:var(--green-dim)">chart ↗</a>
             </div>
           </div>
