@@ -971,6 +971,32 @@ function dexToLive(pair) {
   };
 }
 
+/* ---------- ROLLING ATH TRACKER (localStorage-backed) ---------- */
+// Stores the highest live MCAP ever seen per contract across all sessions.
+// This is the ONLY accurate ATH — it tracks Dexscreener live data over time.
+const ATH_KEY = "kwy-ath-v1";
+function getStoredATH() {
+  try {
+    const raw = localStorage.getItem(ATH_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function setStoredATH(map) {
+  try { localStorage.setItem(ATH_KEY, JSON.stringify(map)); } catch {}
+}
+function getATH(contract) {
+  return getStoredATH()[contract] ?? null;
+}
+function updateATH(contract, liveMcap) {
+  if (!contract || liveMcap == null || isNaN(liveMcap)) return;
+  const map = getStoredATH();
+  const prev = map[contract] ?? 0;
+  if (liveMcap > prev) {
+    map[contract] = liveMcap;
+    setStoredATH(map);
+  }
+}
+
 // mutate md.posts coins in place: attach `.live` from dexscreener; also store
 // md.live as a global Map<address, livePair> for any other consumers.
 async function enrichWithLive(md) {
@@ -990,7 +1016,11 @@ async function enrichWithLive(md) {
   for (const post of md.posts) {
     for (const coin of post.coins) {
       const pair = pairs.get(coin.contract);
-      if (pair) coin.live = dexToLive(pair);
+      if (pair) {
+        coin.live = dexToLive(pair);
+        // Update rolling ATH with live mcap
+        updateATH(coin.contract, coin.live?.mcap);
+      }
     }
   }
   // also tag latestByTier coins (same objects, but make sure)
@@ -1268,9 +1298,11 @@ function coinCard(c, tier, md) {
   const ch24 = live?.change?.["24h"];
   const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
 
-  // ATH from all historical flags for this contract + explicit ATH from message content
-  let athMcap = null;
-  if (md && c.contract && md.flagsByContract) {
+  // ATH: rolling live tracker (localStorage) beats everything — it tracks
+  // the highest mcap Dexscreener has ever reported for this contract.
+  let athMcap = getATH(c.contract);
+  // Fallback: compute from historical flags if no stored value yet
+  if (athMcap == null && md && c.contract && md.flagsByContract) {
     const flags = md.flagsByContract.get(c.contract);
     if (flags) {
       athMcap = flags.reduce((best, f) => {
@@ -1279,11 +1311,7 @@ function coinCard(c, tier, md) {
       }, 0);
     }
   }
-  // Also consider the current coin's own explicit ATH field
-  if (c.ath != null && c.ath > 0) {
-    athMcap = Math.max(athMcap ?? 0, c.ath);
-  }
-  if (athMcap <= 0) athMcap = null;
+  if (athMcap == null || athMcap <= 0) athMcap = null;
 
   // Age from pair creation timestamp (Dexscreener)
   const ageMs = live?.pairCreatedAt ? new Date(live.pairCreatedAt).getTime() : null;
@@ -1389,13 +1417,17 @@ function renderFlagHistory(md) {
     // Sort by timestamp ascending to find first flag
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
     const first = sorted[0];
-    // Find ATH = highest mcap across all flags for this coin (snapshot, live, or explicit ATH)
-    const ath = sorted.reduce((best, f) => {
-      const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
-      return m > best.mcap ? { mcap: m, ts: f.ts } : best;
-    }, { mcap: 0, ts: first.ts });
-    if (!first.mcap || ath.mcap <= first.mcap) continue; // skip if no gain
-    const gain = ((ath.mcap - first.mcap) / first.mcap) * 100;
+    // ATH: rolling live tracker (localStorage) is the primary source of truth
+    let athMcap = getATH(contract);
+    // Fallback: compute from historical flags if no stored value yet
+    if (athMcap == null) {
+      athMcap = sorted.reduce((best, f) => {
+        const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
+        return m > best ? m : best;
+      }, 0);
+    }
+    if (!first.mcap || athMcap <= first.mcap) continue; // skip if no gain
+    const gain = ((athMcap - first.mcap) / first.mcap) * 100;
     const ts = new Date(first.ts);
     let t = ts.toISOString().slice(5,16).replace("T"," ");
     if (first.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
@@ -1405,7 +1437,7 @@ function renderFlagHistory(md) {
       tier: first.tier,
       contract: contract,
       calledAt: first.mcap,
-      ath: ath.mcap,
+      ath: athMcap,
       gain,
       when: t,
     });
