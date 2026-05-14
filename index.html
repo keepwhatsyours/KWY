@@ -1311,9 +1311,9 @@ function renderFlagHistory(md) {
     // Sort by timestamp ascending to find first flag
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
     const first = sorted[0];
-    // Find ATH = highest mcap across all flags for this coin
+    // Find ATH = highest mcap across all flags for this coin (snapshot or live)
     const ath = sorted.reduce((best, f) => {
-      const m = f.mcap ?? 0;
+      const m = f.mcap ?? f.live?.mcap ?? 0;
       return m > best.mcap ? { mcap: m, ts: f.ts } : best;
     }, { mcap: 0, ts: first.ts });
     if (!first.mcap || ath.mcap <= first.mcap) continue; // skip if no gain
