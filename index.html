@@ -1049,7 +1049,7 @@ async function fetchGMGN(address, chain = "sol") {
   try {
     const url = `${GMGN_URL}?address=${encodeURIComponent(address)}&chain=${chain}`;
     console.log("[gmgn] fetching", url);
-    const r = await fetchWithTimeout(url, { cache: "no-store" }, 15000);
+    const r = await fetchWithTimeout(url, { cache: "no-store" }, 30000);
     if (!r.ok) { console.warn("[gmgn] HTTP", r.status, url); return null; }
     const data = await r.json();
     console.log("[gmgn] ok", address, data.info ? "has info" : "no info", data.security ? "has sec" : "no sec", "errors:", data.errors?.length || 0);
@@ -1062,21 +1062,32 @@ async function fetchGMGN(address, chain = "sol") {
 }
 
 async function enrichWithGMGN(md) {
+  // Only fetch GMGN for visible Market Scan coins (~9), not all 126 history.
   const addresses = [];
   const seen = new Set();
-  for (const post of md.posts) {
-    for (const coin of post.coins) {
-      if (coin.contract && !seen.has(coin.contract)) {
-        seen.add(coin.contract);
-        addresses.push(coin.contract);
+  const tiers = ["big", "mid", "low"];
+  for (const t of tiers) {
+    const post = md.latestByTier[t];
+    if (!post) continue;
+    for (const c of post.coins) {
+      if (c.contract && !seen.has(c.contract)) {
+        seen.add(c.contract);
+        addresses.push(c.contract);
       }
     }
   }
-  // Batch in parallel (backend caches, so duplicates are cheap)
-  console.log("[gmgn] enriching", addresses.length, "addresses");
-  const results = await Promise.allSettled(
-    addresses.map(addr => fetchGMGN(addr, "sol"))
-  );
+  if (!addresses.length) return md;
+  // Batch in chunks of 5 (browser limits ~6 concurrent to same domain)
+  console.log("[gmgn] enriching", addresses.length, "visible addresses");
+  const BATCH = 5;
+  const results = [];
+  for (let i = 0; i < addresses.length; i += BATCH) {
+    const chunk = addresses.slice(i, i + BATCH);
+    const chunkResults = await Promise.allSettled(
+      chunk.map(addr => fetchGMGN(addr, "sol"))
+    );
+    results.push(...chunkResults);
+  }
   let enriched = 0;
   results.forEach((res, i) => {
     if (res.status !== "fulfilled" || !res.value) return;
