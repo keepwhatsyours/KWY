@@ -1854,6 +1854,9 @@ async function pollFeed(){
     // Enrich with GMGN on-chain data (holders, dev status, security) in background.
     try {
       await enrichWithGMGN(md);
+      // DEBUG: verify gmgn data attached
+      const sample = md.posts[0]?.coins[0];
+      console.log("[gmgn] post-enrich sample:", sample?.symbol, "gmgn:", sample?.gmgn);
       renderAllScanPanels(md);
     } catch (e) {
       console.warn("gmgn enrichment failed:", e);
