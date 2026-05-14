@@ -592,7 +592,7 @@
     </div>
   </div>
 
-  <!-- BIGGEST WINS — highest gain from first flag (called at) to ATH -->
+  <!-- BIGGEST WINS — highest gain from first flag (called at) to current live mcap -->
   <div class="panel">
     <h2>BIGGEST WINS <span class="meta" id="tr-meta"></span></h2>
     <div style="overflow-x:auto">
@@ -601,6 +601,7 @@
           <tr>
             <th>SYM</th>
             <th class="num">CALLED AT</th>
+            <th class="num">CURRENT</th>
             <th class="num">GAIN</th>
             <th>WHEN</th>
           </tr>
@@ -1300,29 +1301,6 @@ function coinCard(c, tier, md) {
   const ch24 = live?.change?.["24h"];
   const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
 
-  // ATH: rolling live tracker (localStorage) beats everything — it tracks
-  // the highest mcap Dexscreener has ever reported for this contract.
-  let athMcap = getATH(c.contract);
-  // Fallback: compute from historical flags if no stored value yet
-  if (athMcap == null && md && c.contract && md.flagsByContract) {
-    const flags = md.flagsByContract.get(c.contract);
-    if (flags) {
-      athMcap = flags.reduce((best, f) => {
-        const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
-        return m > best ? m : best;
-      }, 0);
-    }
-  }
-  // CRITICAL: ATH can never be lower than the current live mcap.
-  // If the tracker is empty, seed it with the current live value.
-  if (live?.mcap != null && live.mcap > 0) {
-    if (athMcap == null || athMcap < live.mcap) {
-      athMcap = live.mcap;
-      updateATH(c.contract, live.mcap);
-    }
-  }
-  if (athMcap == null || athMcap <= 0) athMcap = null;
-
   // Age from pair creation timestamp (Dexscreener)
   const ageMs = live?.pairCreatedAt ? new Date(live.pairCreatedAt).getTime() : null;
 
@@ -1359,7 +1337,6 @@ function coinCard(c, tier, md) {
       <div class="kvs">
         <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
         <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
-        <div class="kv"><span class="k">ath</span><span class="v">${fmtCompact(athMcap)}</span></div>
         <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
         <div class="kv"><span class="k">degens</span><span class="v ${isLive?'snapshot':''}">${fmtCount(c.degens)}</span></div>
@@ -1420,34 +1397,16 @@ function renderMarketScan(md) {
 }
 
 function renderFlagHistory(md) {
-  // Compute biggest wins: per contract, first flag mcap → highest mcap ever reached (ATH)
+  // Compute gains: per contract, first flag mcap → latest live mcap
   const wins = [];
   for (const [contract, flags] of md.flagsByContract) {
     if (!flags.length) continue;
-    // Sort by timestamp ascending to find first flag
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
     const first = sorted[0];
-    // ATH: rolling live tracker (localStorage) is the primary source of truth
-    let athMcap = getATH(contract);
-    // Fallback: compute from historical flags if no stored value yet
-    if (athMcap == null) {
-      athMcap = sorted.reduce((best, f) => {
-        const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
-        return m > best ? m : best;
-      }, 0);
-    }
-    // CRITICAL: ATH can never be lower than the current live mcap.
-    // If the tracker is empty, seed it with the current live value.
-    const newestFlag = sorted[sorted.length - 1];
-    const liveMcap = newestFlag?.live?.mcap ?? null;
-    if (liveMcap != null && liveMcap > 0) {
-      if (athMcap == null || athMcap < liveMcap) {
-        athMcap = liveMcap;
-        updateATH(contract, liveMcap);
-      }
-    }
-    if (!first.mcap || athMcap <= first.mcap) continue; // skip if no gain
-    const gain = ((athMcap - first.mcap) / first.mcap) * 100;
+    const newest = sorted[sorted.length - 1];
+    const current = newest?.live?.mcap ?? newest?.mcap ?? null;
+    if (!first.mcap || !current || current <= first.mcap) continue;
+    const gain = ((current - first.mcap) / first.mcap) * 100;
     const ts = new Date(first.ts);
     let t = ts.toISOString().slice(5,16).replace("T"," ");
     if (first.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
@@ -1457,7 +1416,7 @@ function renderFlagHistory(md) {
       tier: first.tier,
       contract: contract,
       calledAt: first.mcap,
-      ath: athMcap,
+      current: current,
       gain,
       when: t,
     });
@@ -1475,6 +1434,7 @@ function renderFlagHistory(md) {
       <tr>
         ${symCell}
         <td class="num">${fmtCompact(w.calledAt)}</td>
+        <td class="num">${fmtCompact(w.current)}</td>
         <td class="num ${gainCls}">${w.gain >= 0 ? '+' : ''}${w.gain.toFixed(1)}%</td>
         <td style="font-variant-numeric:tabular-nums;color:var(--green-dim)">${w.when}</td>
       </tr>
