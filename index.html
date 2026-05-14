@@ -1323,6 +1323,13 @@ function coinCard(c, tier, md) {
   const swaps   = swapCount || "—";
   const bs      = swapRatio || "—";
 
+  // Parse dev status from risk field: "Dev Holding | ..." or "Dev Exited | ..."
+  const devHolding = c.risk ? /Dev\s+Holding|Dev\s+Hold/i.test(c.risk) : false;
+  const devExited  = c.risk ? /Dev\s+Exited|Dev\s+Sell|Dev\s+Sold/i.test(c.risk) : false;
+  const devStatus  = devHolding ? "hold" : devExited ? "sell" : null;
+  const devDot     = devStatus === "hold" ? "🟢" : devStatus === "sell" ? "🔴" : "";
+  const devLabel   = devStatus === "hold" ? "holding" : devStatus === "sell" ? "exited" : "—";
+
   return `
     <div class="coin tier-${tier} ${isLive?"is-live":""}">
       <div class="row1">
@@ -1345,15 +1352,15 @@ function coinCard(c, tier, md) {
       })()}
       <div class="kvs">
         <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
-        <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">liq</span><span class="v">${fmtCompact(liq)}</span></div>
+        <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
         <div class="kv"><span class="k">kols</span><span class="v">${kols}</span></div>
         <div class="kv"><span class="k">degens</span><span class="v">${degens}</span></div>
-        <div class="kv"><span class="k">holders</span><span class="v">${holders}</span></div>
         <div class="kv"><span class="k">swaps</span><span class="v">${swaps}</span></div>
+        <div class="kv"><span class="k">holders</span><span class="v">${holders}</span></div>
         <div class="kv"><span class="k">b/s</span><span class="v">${bs}</span></div>
-        <div class="kv"><span class="k">dev</span><span class="v">—</span></div>
+        <div class="kv"><span class="k">dev</span><span class="v ${devStatus ? (devStatus === "hold" ? "pos" : "neg") : ""}">${devDot} ${devLabel}</span></div>
       </div>
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
       ${calledMcap && live?.mcap ? `<div class="called">called at ${fmtCompact(calledMcap)} mc · ${fmtAgo(c.ts || "")}</div>`:""}
