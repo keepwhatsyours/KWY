@@ -1084,67 +1084,62 @@ function parseBubbaPost(msg) {
   if (!tierMatch2) return null;
   const tier = tierMatch2[1].toLowerCase();
 
-  // Split into coin blocks: each starts with **SYMBOL**
-  const blocks = content.split(/\n\n/).filter(Boolean);
-  const coins = [];
-  let currentCoin = null;
+  // Extract full coin blocks: from **SYMBOL** to the next **SYMBOL** or end
+  const coinBlocks = [];
+  const symRegex = /\*\*([^*]+?)\*\*/g;
+  let m;
+  const matches = [];
+  while ((m = symRegex.exec(content)) !== null) {
+    // Skip the scan header itself (contains "Scan" and date)
+    if (/Scan\s+\d{2}\/\d{2}/.test(m[1])) continue;
+    matches.push({ symbol: m[1].trim(), index: m.index });
+  }
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index;
+    const end = i < matches.length - 1 ? matches[i + 1].index : content.length;
+    coinBlocks.push({ symbol: matches[i].symbol, text: content.slice(start, end) });
+  }
 
-  for (const block of blocks) {
-    const symMatch = block.match(/^\*\*(.+?)\*\*/);
-    if (symMatch) {
-      if (currentCoin) coins.push(currentCoin);
-      currentCoin = {
-        symbol: symMatch[1].trim(),
-        name: "",
-        contract: null,
-        mcap: null,
-        ath: null,
-        price: null,
-        liquidity: null,
-        volume24h: null,
-        holders: null,
-        score: null,
-        degens: null,
-        kols: null,
-        change: {},
-        swaps: null,
-        health: null,
-        risk: null,
-        links: {},
-        raw: {},
-      };
-    }
-    if (!currentCoin) continue;
+  const coins = coinBlocks.map(({ symbol, text }) => {
+    const c = {
+      symbol, name: "",
+      contract: null, mcap: null, ath: null,
+      price: null, liquidity: null, volume24h: null,
+      holders: null, score: null, degens: null, kols: null,
+      change: {}, swaps: null, health: null, risk: null,
+      links: {}, raw: {},
+    };
 
     // Contract address
-    const caMatch = block.match(/`([1-9A-HJ-NP-Za-km-z]{32,44})`/);
-    if (caMatch) currentCoin.contract = caMatch[1];
+    const caMatch = text.match(/`([1-9A-HJ-NP-Za-km-z]{32,44})`/);
+    if (caMatch) c.contract = caMatch[1];
 
     // Mcap from "Mcap: $1.01M" or "Mcap: $220.6K"
-    const mcapMatch = block.match(/Mcap:\s*\$?([\d.]+[KMB]?)/i);
-    if (mcapMatch) currentCoin.mcap = parseNumber(mcapMatch[1]);
+    const mcapMatch = text.match(/Mcap:\s*\$?([\d.]+[KMB]?)/i);
+    if (mcapMatch) c.mcap = parseNumber(mcapMatch[1]);
 
     // ATH from "ATH was $20.09M"
-    const athMatch = block.match(/ATH\s+was\s+\$?([\d.]+[KMB]?)/i);
-    if (athMatch) currentCoin.ath = parseNumber(athMatch[1]);
+    const athMatch = text.match(/ATH\s+was\s+\$?([\d.]+[KMB]?)/i);
+    if (athMatch) c.ath = parseNumber(athMatch[1]);
 
     // Price from "💰 $0.0010072"
-    const priceMatch = block.match(/💰\s*\$?([\d.]+)/);
-    if (priceMatch) currentCoin.price = parseNumber(priceMatch[1]);
+    const priceMatch = text.match(/💰\s*\$?([\d.]+)/);
+    if (priceMatch) c.price = parseNumber(priceMatch[1]);
 
     // Smart Degens
-    const degensMatch = block.match(/Smart\s+Degens:\s*(\d+)/i);
-    if (degensMatch) currentCoin.degens = parseInt(degensMatch[1]);
+    const degensMatch = text.match(/Smart\s+Degens:\s*(\d+)/i);
+    if (degensMatch) c.degens = parseInt(degensMatch[1]);
 
     // KOLs
-    const kolsMatch = block.match(/KOLs:\s*(\d+)/i);
-    if (kolsMatch) currentCoin.kols = parseInt(kolsMatch[1]);
+    const kolsMatch = text.match(/KOLs:\s*(\d+)/i);
+    if (kolsMatch) c.kols = parseInt(kolsMatch[1]);
 
     // 1h change
-    const ch1hMatch = block.match(/1h:\s*([+-]?[\d.]+)%/);
-    if (ch1hMatch) currentCoin.change["1h"] = parseFloat(ch1hMatch[1]);
-  }
-  if (currentCoin) coins.push(currentCoin);
+    const ch1hMatch = text.match(/1h:\s*([+-]?[\d.]+)%/);
+    if (ch1hMatch) c.change["1h"] = parseFloat(ch1hMatch[1]);
+
+    return c;
+  });
 
   return { id: msg.id, ts: msg.timestamp, tier, coins };
 }
