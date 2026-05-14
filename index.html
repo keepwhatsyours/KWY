@@ -1026,56 +1026,126 @@ function parseChange(v) {
 }
 
 function parseBubbaPost(msg) {
-  if (!msg.embeds || msg.embeds.length < 2) return null;
-  const header = msg.embeds[0];
-  const tierMatch = (header.title||"").match(/(Big|Mid|Low)\s+Cap/i);
-  if (!tierMatch) return null;
-  const tier = tierMatch[1].toLowerCase();
-  const coins = msg.embeds.slice(1).map(e => {
-    const t = (e.title||"").trim();
-    const titleMatch = t.match(/^(.+?)\s+[—\-–]\s+(.+)$/);
-    const symbol = titleMatch ? titleMatch[1].trim() : t;
-    const name   = titleMatch ? titleMatch[2].trim() : "";
-    const fields = {};
-    for (const f of (e.fields||[])) {
-      fields[cleanFieldName(f.name)] = (f.value||"").replace(/`/g,"");
-    }
-    // Extract socials/links from anywhere in the embed (description + every field
-    // value). Categorize by domain.
-    const allText = [e.description, ...Object.values(fields)].filter(Boolean).join(" ");
-    const links = {};
-    for (const m of allText.matchAll(/https?:\/\/[^\s)\]'"]+/g)) {
-      const u = m[0].replace(/[.,)\]]+$/, "");
-      if (!links.twitter  && /(?:^|\/)(twitter\.com|x\.com)\//i.test(u)) links.twitter = u;
-      else if (!links.telegram && /(?:^|\/)t\.me\//i.test(u)) links.telegram = u;
-      else if (!links.chart    && /(?:dexscreener|gmgn|birdeye|photon-sol|solscan|pump\.fun)/i.test(u)) links.chart = u;
-      else if (!links.website  && /^https?:\/\//.test(u) && !/cdn|cloudfront|amazonaws|telegram\.org/i.test(u)) {
-        // last-resort bucket; only set if no more specific match was found later
-        links._websiteCandidate = u;
-      }
-    }
-    if (!links.website && links._websiteCandidate) links.website = links._websiteCandidate;
-    delete links._websiteCandidate;
+  // --- EMBED-BASED FORMAT (newer) ---
+  if (msg.embeds && msg.embeds.length >= 2) {
+    const header = msg.embeds[0];
+    const tierMatch = (header.title||"").match(/(Big|Mid|Low)\s+Cap/i);
+    if (tierMatch) {
+      const tier = tierMatch[1].toLowerCase();
+      const coins = msg.embeds.slice(1).map(e => {
+        const t = (e.title||"").trim();
+        const titleMatch = t.match(/^(.+?)\s+[—\-–]\s+(.+)$/);
+        const symbol = titleMatch ? titleMatch[1].trim() : t;
+        const name   = titleMatch ? titleMatch[2].trim() : "";
+        const fields = {};
+        for (const f of (e.fields||[])) {
+          fields[cleanFieldName(f.name)] = (f.value||"").replace(/`/g,"");
+        }
+        const allText = [e.description, ...Object.values(fields)].filter(Boolean).join(" ");
+        const links = {};
+        for (const m of allText.matchAll(/https?:\/\/[^\s)\]'"]+/g)) {
+          const u = m[0].replace(/[.,)\]]+$/, "");
+          if (!links.twitter  && /(?:^|\/)(twitter\.com|x\.com)\//i.test(u)) links.twitter = u;
+          else if (!links.telegram && /(?:^|\/)t\.me\//i.test(u)) links.telegram = u;
+          else if (!links.chart    && /(?:dexscreener|gmgn|birdeye|photon-sol|solscan|pump\.fun)/i.test(u)) links.chart = u;
+          else if (!links.website  && /^https?:\/\//.test(u) && !/cdn|cloudfront|amazonaws|telegram\.org/i.test(u)) {
+            links._websiteCandidate = u;
+          }
+        }
+        if (!links.website && links._websiteCandidate) links.website = links._websiteCandidate;
+        delete links._websiteCandidate;
 
-    return {
-      symbol, name, color: e.color,
-      contract:  fields["Contract"] || null,
-      price:     parseNumber(fields["Price"]),
-      mcap:      parseNumber(fields["Market Cap"]),
-      liquidity: parseNumber(fields["Liquidity"]),
-      volume24h: parseNumber(fields["Volume (24h)"]),
-      holders:   parseNumber(fields["Holders"]),
-      score:     parseNumber(fields["Score"]),
-      degens:    parseNumber(fields["Smart Degens"]),
-      kols:      parseNumber(fields["KOLs"]),
-      change:    parseChange(fields["Price Change"]),
-      swaps:     fields["Swaps"] || null,
-      health:    fields["Wallet Health"] || null,
-      risk:      fields["Dev / Risk"] || fields["Dev/Risk"] || null,
-      links,
-      raw:       fields,
-    };
-  });
+        return {
+          symbol, name, color: e.color,
+          contract:  fields["Contract"] || null,
+          price:     parseNumber(fields["Price"]),
+          mcap:      parseNumber(fields["Market Cap"]),
+          liquidity: parseNumber(fields["Liquidity"]),
+          volume24h: parseNumber(fields["Volume (24h)"]),
+          holders:   parseNumber(fields["Holders"]),
+          score:     parseNumber(fields["Score"]),
+          degens:    parseNumber(fields["Smart Degens"]),
+          kols:      parseNumber(fields["KOLs"]),
+          change:    parseChange(fields["Price Change"]),
+          swaps:     fields["Swaps"] || null,
+          health:    fields["Wallet Health"] || null,
+          risk:      fields["Dev / Risk"] || fields["Dev/Risk"] || null,
+          links,
+          raw:       fields,
+        };
+      });
+      return { id: msg.id, ts: msg.timestamp, tier, coins };
+    }
+  }
+
+  // --- CONTENT-BASED FORMAT (older, text-only) ---
+  const content = msg.content || "";
+  const tierMatch2 = content.match(/🎯\s*\*\*(Big|Mid|Low)\s+Cap\s+Scan/i);
+  if (!tierMatch2) return null;
+  const tier = tierMatch2[1].toLowerCase();
+
+  // Split into coin blocks: each starts with **SYMBOL**
+  const blocks = content.split(/\n\n/).filter(Boolean);
+  const coins = [];
+  let currentCoin = null;
+
+  for (const block of blocks) {
+    const symMatch = block.match(/^\*\*(.+?)\*\*/);
+    if (symMatch) {
+      if (currentCoin) coins.push(currentCoin);
+      currentCoin = {
+        symbol: symMatch[1].trim(),
+        name: "",
+        contract: null,
+        mcap: null,
+        ath: null,
+        price: null,
+        liquidity: null,
+        volume24h: null,
+        holders: null,
+        score: null,
+        degens: null,
+        kols: null,
+        change: {},
+        swaps: null,
+        health: null,
+        risk: null,
+        links: {},
+        raw: {},
+      };
+    }
+    if (!currentCoin) continue;
+
+    // Contract address
+    const caMatch = block.match(/`([1-9A-HJ-NP-Za-km-z]{32,44})`/);
+    if (caMatch) currentCoin.contract = caMatch[1];
+
+    // Mcap from "Mcap: $1.01M" or "Mcap: $220.6K"
+    const mcapMatch = block.match(/Mcap:\s*\$?([\d.]+[KMB]?)/i);
+    if (mcapMatch) currentCoin.mcap = parseNumber(mcapMatch[1]);
+
+    // ATH from "ATH was $20.09M"
+    const athMatch = block.match(/ATH\s+was\s+\$?([\d.]+[KMB]?)/i);
+    if (athMatch) currentCoin.ath = parseNumber(athMatch[1]);
+
+    // Price from "💰 $0.0010072"
+    const priceMatch = block.match(/💰\s*\$?([\d.]+)/);
+    if (priceMatch) currentCoin.price = parseNumber(priceMatch[1]);
+
+    // Smart Degens
+    const degensMatch = block.match(/Smart\s+Degens:\s*(\d+)/i);
+    if (degensMatch) currentCoin.degens = parseInt(degensMatch[1]);
+
+    // KOLs
+    const kolsMatch = block.match(/KOLs:\s*(\d+)/i);
+    if (kolsMatch) currentCoin.kols = parseInt(kolsMatch[1]);
+
+    // 1h change
+    const ch1hMatch = block.match(/1h:\s*([+-]?[\d.]+)%/);
+    if (ch1hMatch) currentCoin.change["1h"] = parseFloat(ch1hMatch[1]);
+  }
+  if (currentCoin) coins.push(currentCoin);
+
   return { id: msg.id, ts: msg.timestamp, tier, coins };
 }
 
@@ -1203,18 +1273,22 @@ function coinCard(c, tier, md) {
   const ch24 = live?.change?.["24h"];
   const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
 
-  // ATH from all historical flags for this contract
+  // ATH from all historical flags for this contract + explicit ATH from message content
   let athMcap = null;
   if (md && c.contract && md.flagsByContract) {
     const flags = md.flagsByContract.get(c.contract);
     if (flags) {
       athMcap = flags.reduce((best, f) => {
-        const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0);
+        const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
         return m > best ? m : best;
       }, 0);
-      if (athMcap <= 0) athMcap = null;
     }
   }
+  // Also consider the current coin's own explicit ATH field
+  if (c.ath != null && c.ath > 0) {
+    athMcap = Math.max(athMcap ?? 0, c.ath);
+  }
+  if (athMcap <= 0) athMcap = null;
 
   // Age from pair creation timestamp (Dexscreener)
   const ageMs = live?.pairCreatedAt ? new Date(live.pairCreatedAt).getTime() : null;
@@ -1320,9 +1394,9 @@ function renderFlagHistory(md) {
     // Sort by timestamp ascending to find first flag
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
     const first = sorted[0];
-    // Find ATH = highest mcap across all flags for this coin (snapshot or live)
+    // Find ATH = highest mcap across all flags for this coin (snapshot, live, or explicit ATH)
     const ath = sorted.reduce((best, f) => {
-      const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0);
+      const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
       return m > best.mcap ? { mcap: m, ts: f.ts } : best;
     }, { mcap: 0, ts: first.ts });
     if (!first.mcap || ath.mcap <= first.mcap) continue; // skip if no gain
