@@ -1049,10 +1049,10 @@ async function fetchGMGN(address, chain = "sol") {
   try {
     const url = `${GMGN_URL}?address=${encodeURIComponent(address)}&chain=${chain}`;
     console.log("[gmgn] fetching", url);
-    const r = await fetchWithTimeout(url, { cache: "no-store" });
+    const r = await fetchWithTimeout(url, { cache: "no-store" }, 15000);
     if (!r.ok) { console.warn("[gmgn] HTTP", r.status, url); return null; }
     const data = await r.json();
-    console.log("[gmgn] ok", address, data.info ? "has info" : "no info", data.security ? "has sec" : "no sec");
+    console.log("[gmgn] ok", address, data.info ? "has info" : "no info", data.security ? "has sec" : "no sec", "errors:", data.errors?.length || 0);
     gmgnCache.set(key, { data, fetchedAt: now });
     return data;
   } catch (err) {
@@ -1364,6 +1364,7 @@ function renderScanStats(md) {
 }
 
 function coinCard(c, tier, md) {
+  console.log("[card]", c.symbol, "gmgn:", !!c.gmgn, "live:", !!c.live, "contract:", !!c.contract);
   // Prefer live data when available; fall back to Bubba Bot snapshot.
   const live = c.live;
   const price = live?.price ?? c.price;
