@@ -404,6 +404,8 @@ function extractMessageLinks(rawHtml, cleanedContent) {
     for (const m of rawHtml.matchAll(/<a[^>]*href="([^"]+)"[^>]*>/gi)) {
       const u = m[1].trim();
       if (!u || u.startsWith('mailto:')) continue;
+      // Drop sponsored ad redirects that ride along inside legit posts.
+      if (/insideads/i.test(u)) continue;
       if (/(?:^|\/\/)(?:www\.)?(?:twitter\.com|x\.com)\//i.test(u)) candidate('twitter', u);
       else if (/(?:^|\/\/)(?:www\.)?t\.me\//i.test(u)) {
         if (/InsideAds/i.test(u)) continue; // skip sponsored ad deeplinks
