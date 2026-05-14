@@ -1095,31 +1095,40 @@ async function enrichWithGMGN(md) {
     const addr = addresses[i];
     const info = res.value.info;
     const sec = res.value.security;
-    // Attach to all coins with this contract
+    const gmgnData = {
+      holderCount: info?.holder_count ?? null,
+      devStatus: info?.dev?.creator_token_status ?? null,
+      top10Rate: info?.dev?.top_10_holder_rate ?? null,
+      dexAd: info?.dev?.dexscr_ad ?? null,
+      rugRatio: sec?.rug_ratio ?? null,
+      renouncedMint: sec?.renounced_mint ?? null,
+      renouncedFreeze: sec?.renounced_freeze_account ?? null,
+      buyTax: sec?.buy_tax ?? null,
+      sellTax: sec?.sell_tax ?? null,
+      isHoneypot: sec?.is_honeypot ?? null,
+      degens: info?.wallet_tags_stat?.smart_wallets ?? null,
+      kols: info?.wallet_tags_stat?.renowned_wallets ?? null,
+      swaps24h: info?.price?.swaps_24h ?? null,
+      buys24h: info?.price?.buys_24h ?? null,
+      sells24h: info?.price?.sells_24h ?? null,
+      buyVol24h: info?.price?.buy_volume_24h ?? null,
+      sellVol24h: info?.price?.sell_volume_24h ?? null,
+    };
+    // Attach to all coins with this contract (posts + latestByTier)
     for (const post of md.posts) {
       for (const coin of post.coins) {
         if (coin.contract === addr) {
-          coin.gmgn = {
-            holderCount: info?.holder_count ?? null,
-            devStatus: info?.dev?.creator_token_status ?? null,
-            top10Rate: info?.dev?.top_10_holder_rate ?? null,
-            dexAd: info?.dev?.dexscr_ad ?? null,
-            rugRatio: sec?.rug_ratio ?? null,
-            renouncedMint: sec?.renounced_mint ?? null,
-            renouncedFreeze: sec?.renounced_freeze_account ?? null,
-            buyTax: sec?.buy_tax ?? null,
-            sellTax: sec?.sell_tax ?? null,
-            isHoneypot: sec?.is_honeypot ?? null,
-            // wallet tags
-            degens: info?.wallet_tags_stat?.smart_wallets ?? null,
-            kols: info?.wallet_tags_stat?.renowned_wallets ?? null,
-            // swap activity from price object
-            swaps24h: info?.price?.swaps_24h ?? null,
-            buys24h: info?.price?.buys_24h ?? null,
-            sells24h: info?.price?.sells_24h ?? null,
-            buyVol24h: info?.price?.buy_volume_24h ?? null,
-            sellVol24h: info?.price?.sell_volume_24h ?? null,
-          };
+          coin.gmgn = gmgnData;
+        }
+      }
+    }
+    // Also attach to latestByTier coins (same objects by reference, but be safe)
+    for (const t of tiers) {
+      const post = md.latestByTier[t];
+      if (!post) continue;
+      for (const coin of post.coins) {
+        if (coin.contract === addr) {
+          coin.gmgn = gmgnData;
         }
       }
     }
@@ -1495,7 +1504,7 @@ function renderMarketScan(md) {
           <span>${tierBlurb[t]}</span>
           <span class="when">${fmtAgo(post.ts)} · ${uniqueCoins.length} coin${uniqueCoins.length===1?"":"s"}</span>
         </div>
-        <div class="coin-grid">${uniqueCoins.map(c => coinCard({...c, ts: post.ts}, t, md)).join("")}</div>
+        <div class="coin-grid">${uniqueCoins.map(c => coinCard(c, t, md)).join("")}</div>
       </div>
     `;
   }).join("");
