@@ -1360,7 +1360,7 @@ function coinCard(c, tier, md) {
         <div class="kv"><span class="k">swaps</span><span class="v">${swaps}</span></div>
         <div class="kv"><span class="k">holders</span><span class="v">${holders}</span></div>
         <div class="kv"><span class="k">b/s</span><span class="v">${bs}</span></div>
-        <div class="kv"><span class="k">dev</span><span class="v ${devStatus ? (devStatus === "hold" ? "pos" : "neg") : ""}">${devDot} ${devLabel}</span></div>
+        <div class="kv"><span class="k">dev</span><span class="v ${devStatus ? (devStatus === "hold" ? "neg" : "pos") : ""}">${devDot} ${devLabel}</span></div>
       </div>
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
       ${calledMcap && live?.mcap ? `<div class="called">called at ${fmtCompact(calledMcap)} mc · ${fmtAgo(c.ts || "")}</div>`:""}
