@@ -604,7 +604,7 @@
           <tr>
             <th>SYM</th>
             <th class="num">CALLED AT</th>
-            <th class="num">CURRENT</th>
+            <th class="num">ATH</th>
             <th class="num">GAIN</th>
             <th>WHEN</th>
           </tr>
@@ -1412,14 +1412,15 @@ function renderMarketScan(md) {
 }
 
 function renderFlagHistory(md) {
-  // Compute gains: per contract, first flag mcap → latest live mcap
+  // Compute gains: per contract, first flag mcap → ATH (highest mcap ever seen)
   const wins = [];
   for (const [contract, flags] of md.flagsByContract) {
     if (!flags.length) continue;
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
     const first = sorted[0];
     const newest = sorted[sorted.length - 1];
-    const current = newest?.live?.mcap ?? newest?.mcap ?? null;
+    const ath = contract ? getATH(contract) : null;
+    const current = ath ?? newest?.live?.mcap ?? newest?.mcap ?? null;
     if (!first.mcap || !current || current <= first.mcap) continue;
     const gain = ((current - first.mcap) / first.mcap) * 100;
     const ts = new Date(first.ts);
