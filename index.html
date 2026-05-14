@@ -656,7 +656,6 @@
 // Leave blank to show the offline placeholder. See bot/README.md for setup.
 const FEED_URL = "https://kwy.onrender.com/feed";
 const FEED_POLL_MS = 15000;
-const GMGN_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/gmgn") : "";
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
 
@@ -1034,109 +1033,6 @@ async function enrichWithLive(md) {
   return md;
 }
 
-/* ---------- GMGN ENRICHMENT ---------- */
-// Fetches live holder count, dev status, security flags from GMGN proxy.
-// Results cached per-address for 2 minutes (same TTL as backend).
-const gmgnCache = new Map(); // address -> { data, fetchedAt }
-const GMGN_CACHE_MS = 2 * 60 * 1000;
-
-async function fetchGMGN(address, chain = "sol") {
-  if (!GMGN_URL) { console.warn("GMGN_URL not set"); return null; }
-  const key = address;
-  const now = Date.now();
-  const cached = gmgnCache.get(key);
-  if (cached && now - cached.fetchedAt < GMGN_CACHE_MS) return cached.data;
-  try {
-    const url = `${GMGN_URL}?address=${encodeURIComponent(address)}&chain=${chain}`;
-    console.log("[gmgn] fetching", url);
-    const r = await fetchWithTimeout(url, { cache: "no-store" }, 30000);
-    if (!r.ok) { console.warn("[gmgn] HTTP", r.status, url); return null; }
-    const data = await r.json();
-    console.log("[gmgn] ok", address, data.info ? "has info" : "no info", data.security ? "has sec" : "no sec", "errors:", data.errors?.length || 0);
-    gmgnCache.set(key, { data, fetchedAt: now });
-    return data;
-  } catch (err) {
-    console.warn("[gmgn] fetch failed:", err.message);
-    return null;
-  }
-}
-
-async function enrichWithGMGN(md) {
-  // Only fetch GMGN for visible Market Scan coins (~9), not all 126 history.
-  const addresses = [];
-  const seen = new Set();
-  const tiers = ["big", "mid", "low"];
-  for (const t of tiers) {
-    const post = md.latestByTier[t];
-    if (!post) continue;
-    for (const c of post.coins) {
-      if (c.contract && !seen.has(c.contract)) {
-        seen.add(c.contract);
-        addresses.push(c.contract);
-      }
-    }
-  }
-  if (!addresses.length) return md;
-  // Batch in chunks of 5 (browser limits ~6 concurrent to same domain)
-  console.log("[gmgn] enriching", addresses.length, "visible addresses");
-  const BATCH = 5;
-  const results = [];
-  for (let i = 0; i < addresses.length; i += BATCH) {
-    const chunk = addresses.slice(i, i + BATCH);
-    const chunkResults = await Promise.allSettled(
-      chunk.map(addr => fetchGMGN(addr, "sol"))
-    );
-    results.push(...chunkResults);
-  }
-  let enriched = 0;
-  results.forEach((res, i) => {
-    if (res.status !== "fulfilled" || !res.value) return;
-    enriched++;
-    const addr = addresses[i];
-    const info = res.value.info;
-    const sec = res.value.security;
-    const gmgnData = {
-      holderCount: info?.holder_count ?? null,
-      devStatus: info?.dev?.creator_token_status ?? null,
-      top10Rate: info?.dev?.top_10_holder_rate ?? null,
-      dexAd: info?.dev?.dexscr_ad ?? null,
-      rugRatio: sec?.rug_ratio ?? null,
-      renouncedMint: sec?.renounced_mint ?? null,
-      renouncedFreeze: sec?.renounced_freeze_account ?? null,
-      buyTax: sec?.buy_tax ?? null,
-      sellTax: sec?.sell_tax ?? null,
-      isHoneypot: sec?.is_honeypot ?? null,
-      degens: info?.wallet_tags_stat?.smart_wallets ?? null,
-      kols: info?.wallet_tags_stat?.renowned_wallets ?? null,
-      swaps24h: info?.price?.swaps_24h ?? null,
-      buys24h: info?.price?.buys_24h ?? null,
-      sells24h: info?.price?.sells_24h ?? null,
-      buyVol24h: info?.price?.buy_volume_24h ?? null,
-      sellVol24h: info?.price?.sell_volume_24h ?? null,
-    };
-    // Attach to all coins with this contract (posts + latestByTier)
-    for (const post of md.posts) {
-      for (const coin of post.coins) {
-        if (coin.contract === addr) {
-          coin.gmgn = gmgnData;
-        }
-      }
-    }
-    // Also attach to latestByTier coins (same objects by reference, but be safe)
-    for (const t of tiers) {
-      const post = md.latestByTier[t];
-      if (!post) continue;
-      for (const coin of post.coins) {
-        if (coin.contract === addr) {
-          coin.gmgn = gmgnData;
-        }
-      }
-    }
-  });
-  console.log("[gmgn] enriched", enriched, "/", addresses.length, "coins");
-  return md;
-}
-
 /* ---------- MARKET SCAN (parse Bubba Bot embeds) ---------- */
 
 // strip leading emoji + whitespace from field names: "💰 Price" → "Price"
@@ -1420,20 +1316,12 @@ function coinCard(c, tier, md) {
     swapCount = s.split("(")[0].trim().replace(/\s+/g, " ");
   }
 
-  // Prefer Discord feed data, fall back to GMGN if missing
-  const kols    = c.kols    != null ? fmtCount(c.kols)    : (c.gmgn?.kols    != null ? fmtCount(c.gmgn.kols)    : "—");
-  const degens  = c.degens  != null ? fmtCount(c.degens)  : (c.gmgn?.degens  != null ? fmtCount(c.gmgn.degens)  : "—");
-  const holders = c.holders != null ? fmtCount(c.holders) : (c.gmgn?.holderCount != null ? fmtCount(c.gmgn.holderCount) : "—");
-  const swaps   = swapCount || (c.gmgn?.swaps24h != null ? fmtCount(c.gmgn.swaps24h) : "—");
-  const bs      = swapRatio || ((c.gmgn?.buys24h != null && c.gmgn?.sells24h != null && c.gmgn.sells24h > 0)
-                    ? (c.gmgn.buys24h / c.gmgn.sells24h).toFixed(2) + "x"
-                    : "—");
-  const devStatus = c.gmgn?.devStatus;
-  const devDot = devStatus === "hold" ? "🟢" : devStatus === "sell" ? "🔴" : "";
-  const renounced = c.gmgn?.renouncedMint && c.gmgn?.renouncedFreeze ? "✅ renounced" : "";
-  const tax = (c.gmgn?.buyTax != null && c.gmgn.buyTax !== "0") || (c.gmgn?.sellTax != null && c.gmgn.sellTax !== "0")
-    ? `tax ${c.gmgn.buyTax || 0}%/${c.gmgn.sellTax || 0}%` : "";
-  const secItems = [renounced, tax].filter(Boolean);
+  // Discord feed data only
+  const kols    = c.kols    != null ? fmtCount(c.kols)    : "—";
+  const degens  = c.degens  != null ? fmtCount(c.degens)  : "—";
+  const holders = c.holders != null ? fmtCount(c.holders) : "—";
+  const swaps   = swapCount || "—";
+  const bs      = swapRatio || "—";
 
   return `
     <div class="coin tier-${tier} ${isLive?"is-live":""}">
@@ -1465,9 +1353,8 @@ function coinCard(c, tier, md) {
         <div class="kv"><span class="k">holders</span><span class="v">${holders}</span></div>
         <div class="kv"><span class="k">swaps</span><span class="v">${swaps}</span></div>
         <div class="kv"><span class="k">b/s</span><span class="v">${bs}</span></div>
-        <div class="kv"><span class="k">dev</span><span class="v ${devStatus ? (devStatus === "hold" ? "pos" : "neg") : "dim"}">${devDot} ${devStatus || "—"}</span></div>
+        <div class="kv"><span class="k">dev</span><span class="v">—</span></div>
       </div>
-      ${secItems.length ? `<div class="sec-row">${secItems.join(" · ")}</div>` : ""}
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
       ${calledMcap && live?.mcap ? `<div class="called">called at ${fmtCompact(calledMcap)} mc · ${fmtAgo(c.ts || "")}</div>`:""}
       ${c.contract ? `<div class="ca">CA <code title="${escapeHTML(c.contract)}" onclick="navigator.clipboard.writeText('${escapeHTML(c.contract)}'); this.textContent='copied'; setTimeout(()=>this.textContent='${escapeHTML(truncCA(c.contract))}', 1200)">${escapeHTML(truncCA(c.contract))}</code></div>` : ""}
@@ -1876,16 +1763,6 @@ async function pollFeed(){
     } catch (e) {
       console.warn("live price enrichment failed:", e);
     }
-    // Enrich with GMGN on-chain data (holders, dev status, security) in background.
-    try {
-      await enrichWithGMGN(md);
-      // DEBUG: verify gmgn data attached
-      const sample = md.posts[0]?.coins[0];
-      console.log("[gmgn] post-enrich sample:", sample?.symbol, "gmgn:", sample?.gmgn);
-      renderAllScanPanels(md);
-    } catch (e) {
-      console.warn("gmgn enrichment failed:", e);
-    }
   }catch(err){
     console.warn("feed poll failed:", err.message || err);
   }
@@ -2125,12 +2002,8 @@ setInterval(updateFreshness, 5000);
       renderAllScanPanels(md);
       lastFeedUpdate = Date.now();
       feedMessages = feedSnap.messages;
-      // enrich with live prices + GMGN data in background
-      enrichWithLive(md)
-        .then(() => renderAllScanPanels(md))
-        .then(() => enrichWithGMGN(md))
-        .then(() => renderAllScanPanels(md))
-        .catch(() => {});
+      // enrich with live prices in background
+      enrichWithLive(md).then(() => renderAllScanPanels(md)).catch(() => {});
     }
     if (intelSnap?.messages?.length) {
       renderFeed(intelSnap.messages);

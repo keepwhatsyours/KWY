@@ -638,80 +638,12 @@ app.get('/intel', async (_req, res) => {
   res.json(data);
 });
 
-// ---------- GMGN PROXY (token info + security) ----------
-// Proxies gmgn-cli calls so the frontend can fetch live on-chain data
-// without exposing the API key. Results cached 2 minutes.
-const GMGN_TTL_MS = 2 * 60 * 1000;
-const gmgnCache = new Map(); // key: "chain:address" -> { data, fetchedAt }
-
-async function execGMGN(args) {
-  const { execFile } = await import('child_process');
-  const { resolve } = await import('path');
-  const env = { ...process.env };
-  if (GMGN_API_KEY) env.GMGN_API_KEY = GMGN_API_KEY;
-  // Resolve local gmgn-cli binary (works in Docker + local dev)
-  const bin = resolve(process.cwd(), 'node_modules/.bin/gmgn-cli');
-  return new Promise((resolve, reject) => {
-    execFile(bin, args, { timeout: 15000, env }, (err, stdout, stderr) => {
-      if (err) return reject(new Error(stderr || err.message));
-      try {
-        resolve(JSON.parse(stdout.trim()));
-      } catch (e) {
-        reject(new Error('invalid JSON from gmgn-cli'));
-      }
-    });
-  });
-}
-
-async function fetchGMGN(chain, address) {
-  const key = `${chain}:${address}`;
-  const now = Date.now();
-  const cached = gmgnCache.get(key);
-  if (cached && now - cached.fetchedAt < GMGN_TTL_MS) return cached.data;
-
-  const [info, security] = await Promise.allSettled([
-    execGMGN(['token', 'info', '--chain', chain, '--address', address, '--raw']),
-    execGMGN(['token', 'security', '--chain', chain, '--address', address, '--raw']),
-  ]);
-
-  const data = {
-    address,
-    chain,
-    info: info.status === 'fulfilled' ? info.value : null,
-    security: security.status === 'fulfilled' ? security.value : null,
-    errors: [
-      info.status === 'rejected' ? info.reason.message : null,
-      security.status === 'rejected' ? security.reason.message : null,
-    ].filter(Boolean),
-  };
-
-  gmgnCache.set(key, { data, fetchedAt: now });
-  return data;
-}
-
-app.get('/gmgn', async (req, res) => {
-  const { address, chain = 'sol' } = req.query;
-  if (!address) return res.status(400).json({ error: 'missing ?address=' });
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
-    return res.status(400).json({ error: 'invalid address format' });
-  }
-  try {
-    const data = await fetchGMGN(chain, address);
-    res.set('Cache-Control', 'public, max-age=60');
-    res.json(data);
-  } catch (err) {
-    console.warn('[warn] /gmgn failed:', err.message);
-    res.status(502).json({ error: err.message });
-  }
-});
-
 app.get('/', (_req, res) => {
   res.type('text/plain').send(
     `KEEPWHATSYOURS.AI feed bot\n\n` +
       `GET /feed       last ${MAX} messages from channel ${CHANNEL_ID}\n` +
       `GET /intel      merged feed from ${INTEL_SLUGS.length} Telegram channels\n` +
       `GET /burpboard  latest "Best performing tokens | Last 24H" from t.me/burpboard\n` +
-      `GET /gmgn       live token info + security from GMGN (?address=\u003cCA\u003e\u0026chain=sol)\n` +
       `GET /health     status\n`
   );
 });
