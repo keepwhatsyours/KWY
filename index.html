@@ -316,14 +316,12 @@
   .score.s-hi{background:var(--green);box-shadow:0 0 8px rgba(0,255,65,.4)}
   .score.s-md{background:var(--amber)}
   .score.s-lo{background:#ff5577}
-  .score.snapshot{opacity:.5}
   .coin .kvs{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:6px;text-align:left}
   .coin .kv{display:flex;justify-content:space-between;gap:6px;font-size:11.5px}
   .coin .kv .k{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em;font-size:10px}
   .coin .kv .v{color:#cdeacd;font-variant-numeric:tabular-nums}
   .coin .kv .v.pos{color:var(--green)}
   .coin .kv .v.neg{color:#ff5577}
-  .coin .kv .v.snapshot{color:var(--green-dim);opacity:.6}
   .coin .chg{font-size:11px;color:var(--green-dim);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
   .coin .chg span{font-variant-numeric:tabular-nums}
   .coin .chg .pos{color:var(--green)}
@@ -1311,7 +1309,7 @@ function coinCard(c, tier, md) {
           <div class="sym">$${escapeHTML(c.symbol)} ${isLive?'<span class="live-dot" title="live from Dexscreener"></span>':""}</div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
-        ${c.score != null ? `<div class="score ${scoreClass(c.score)} ${isLive?'snapshot':''}" title="${isLive?'Snapshot data — not live':'Score from last scan'}">${Math.round(c.score)}</div>` : ""}
+        ${c.score != null && !isLive ? `<div class="score ${scoreClass(c.score)}" title="Score from last scan">${Math.round(c.score)}</div>` : ""}
       </div>
       ${(() => {
         // Always show the banner so it doesn't flicker in/out.
@@ -1325,25 +1323,12 @@ function coinCard(c, tier, md) {
         return `<div class="mcap-banner ${cls}">${txt}</div>`;
       })()}
       ${(() => {
-        // Parse "10,681 (Buy/Sell: 1.22x)" into separate count + ratio fields.
-        let swapCount = null, swapRatio = null;
-        if (c.swaps) {
-          const s = String(c.swaps).trim();
-          const ratioM = s.match(/Buy\/Sell:\s*([\d.]+x)/i);
-          swapRatio = ratioM ? ratioM[1] : null;
-          swapCount = s.split("(")[0].trim().replace(/\s+/g, " ");
-        }
         return `
       <div class="kvs">
         <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
         <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
         <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
-        <div class="kv"><span class="k">degens</span><span class="v ${isLive?'snapshot':''}">${fmtCount(c.degens)}</span></div>
-        <div class="kv"><span class="k">kols</span>  <span class="v ${isLive?'snapshot':''}">${fmtCount(c.kols)}</span></div>
-        <div class="kv"><span class="k">holders</span><span class="v ${isLive?'snapshot':''}">${fmtCount(c.holders)}</span></div>
-        ${swapCount ? `<div class="kv"><span class="k">swaps</span><span class="v ${isLive?'snapshot':''}">${escapeHTML(swapCount)}</span></div>` : ""}
-        ${swapRatio ? `<div class="kv"><span class="k">b/s</span><span class="v ${isLive?'snapshot':''}">${escapeHTML(swapRatio)}</span></div>` : ""}
       </div>`;
       })()}
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
