@@ -1041,22 +1041,22 @@ const gmgnCache = new Map(); // address -> { data, fetchedAt }
 const GMGN_CACHE_MS = 2 * 60 * 1000;
 
 async function fetchGMGN(address, chain = "sol") {
-  if (!GMGN_URL) return null;
+  if (!GMGN_URL) { console.warn("GMGN_URL not set"); return null; }
   const key = address;
   const now = Date.now();
   const cached = gmgnCache.get(key);
   if (cached && now - cached.fetchedAt < GMGN_CACHE_MS) return cached.data;
   try {
-    const r = await fetchWithTimeout(
-      `${GMGN_URL}?address=${encodeURIComponent(address)}&chain=${chain}`,
-      { cache: "no-store" }
-    );
-    if (!r.ok) return null;
+    const url = `${GMGN_URL}?address=${encodeURIComponent(address)}&chain=${chain}`;
+    console.log("[gmgn] fetching", url);
+    const r = await fetchWithTimeout(url, { cache: "no-store" });
+    if (!r.ok) { console.warn("[gmgn] HTTP", r.status, url); return null; }
     const data = await r.json();
+    console.log("[gmgn] ok", address, data.info ? "has info" : "no info", data.security ? "has sec" : "no sec");
     gmgnCache.set(key, { data, fetchedAt: now });
     return data;
   } catch (err) {
-    console.warn("gmgn fetch failed:", err.message);
+    console.warn("[gmgn] fetch failed:", err.message);
     return null;
   }
 }
@@ -1073,11 +1073,14 @@ async function enrichWithGMGN(md) {
     }
   }
   // Batch in parallel (backend caches, so duplicates are cheap)
+  console.log("[gmgn] enriching", addresses.length, "addresses");
   const results = await Promise.allSettled(
     addresses.map(addr => fetchGMGN(addr, "sol"))
   );
+  let enriched = 0;
   results.forEach((res, i) => {
     if (res.status !== "fulfilled" || !res.value) return;
+    enriched++;
     const addr = addresses[i];
     const info = res.value.info;
     const sec = res.value.security;
@@ -1110,6 +1113,7 @@ async function enrichWithGMGN(md) {
       }
     }
   });
+  console.log("[gmgn] enriched", enriched, "/", addresses.length, "coins");
   return md;
 }
 

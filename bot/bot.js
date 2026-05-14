@@ -23,6 +23,7 @@ const {
   MAX_MESSAGES = '50',
   PORT = '3030',
   ALLOWED_ORIGIN = '*',
+  GMGN_API_KEY,
 } = process.env;
 
 if (!DISCORD_TOKEN) {
@@ -645,8 +646,10 @@ const gmgnCache = new Map(); // key: "chain:address" -> { data, fetchedAt }
 
 async function execGMGN(args) {
   const { execFile } = await import('child_process');
+  const env = { ...process.env };
+  if (GMGN_API_KEY) env.GMGN_API_KEY = GMGN_API_KEY;
   return new Promise((resolve, reject) => {
-    execFile('gmgn-cli', args, { timeout: 15000 }, (err, stdout, stderr) => {
+    execFile('gmgn-cli', args, { timeout: 15000, env }, (err, stdout, stderr) => {
       if (err) return reject(new Error(stderr || err.message));
       try {
         resolve(JSON.parse(stdout.trim()));
