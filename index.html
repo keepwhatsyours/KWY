@@ -1209,7 +1209,7 @@ function coinCard(c, tier, md) {
     const flags = md.flagsByContract.get(c.contract);
     if (flags) {
       athMcap = flags.reduce((best, f) => {
-        const m = f.mcap ?? f.live?.mcap ?? 0;
+        const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0);
         return m > best ? m : best;
       }, 0);
       if (athMcap <= 0) athMcap = null;
@@ -1322,7 +1322,7 @@ function renderFlagHistory(md) {
     const first = sorted[0];
     // Find ATH = highest mcap across all flags for this coin (snapshot or live)
     const ath = sorted.reduce((best, f) => {
-      const m = f.mcap ?? f.live?.mcap ?? 0;
+      const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0);
       return m > best.mcap ? { mcap: m, ts: f.ts } : best;
     }, { mcap: 0, ts: first.ts });
     if (!first.mcap || ath.mcap <= first.mcap) continue; // skip if no gain
