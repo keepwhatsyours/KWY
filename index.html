@@ -1313,6 +1313,14 @@ function coinCard(c, tier, md) {
       }, 0);
     }
   }
+  // CRITICAL: ATH can never be lower than the current live mcap.
+  // If the tracker is empty, seed it with the current live value.
+  if (live?.mcap != null && live.mcap > 0) {
+    if (athMcap == null || athMcap < live.mcap) {
+      athMcap = live.mcap;
+      updateATH(c.contract, live.mcap);
+    }
+  }
   if (athMcap == null || athMcap <= 0) athMcap = null;
 
   // Age from pair creation timestamp (Dexscreener)
@@ -1427,6 +1435,16 @@ function renderFlagHistory(md) {
         const m = Math.max(f.mcap ?? 0, f.live?.mcap ?? 0, f.ath ?? 0);
         return m > best ? m : best;
       }, 0);
+    }
+    // CRITICAL: ATH can never be lower than the current live mcap.
+    // If the tracker is empty, seed it with the current live value.
+    const newestFlag = sorted[sorted.length - 1];
+    const liveMcap = newestFlag?.live?.mcap ?? null;
+    if (liveMcap != null && liveMcap > 0) {
+      if (athMcap == null || athMcap < liveMcap) {
+        athMcap = liveMcap;
+        updateATH(contract, liveMcap);
+      }
     }
     if (!first.mcap || athMcap <= first.mcap) continue; // skip if no gain
     const gain = ((athMcap - first.mcap) / first.mcap) * 100;
