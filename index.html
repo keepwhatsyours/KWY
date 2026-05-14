@@ -1096,6 +1096,15 @@ async function enrichWithGMGN(md) {
             buyTax: sec?.buy_tax ?? null,
             sellTax: sec?.sell_tax ?? null,
             isHoneypot: sec?.is_honeypot ?? null,
+            // wallet tags
+            degens: info?.wallet_tags_stat?.smart_wallets ?? null,
+            kols: info?.wallet_tags_stat?.renowned_wallets ?? null,
+            // swap activity from price object
+            swaps24h: info?.price?.swaps_24h ?? null,
+            buys24h: info?.price?.buys_24h ?? null,
+            sells24h: info?.price?.sells_24h ?? null,
+            buyVol24h: info?.price?.buy_volume_24h ?? null,
+            sellVol24h: info?.price?.sell_volume_24h ?? null,
           };
         }
       }
@@ -1402,6 +1411,12 @@ function coinCard(c, tier, md) {
         const g = c.gmgn;
         const hasGMGN = !!g;
         const holders = g?.holderCount != null ? fmtCount(g.holderCount) : "—";
+        const degens = g?.degens != null ? fmtCount(g.degens) : "—";
+        const kols = g?.kols != null ? fmtCount(g.kols) : "—";
+        const swaps = g?.swaps24h != null ? fmtCount(g.swaps24h) : "—";
+        const bs = (g?.buys24h != null && g?.sells24h != null && g.sells24h > 0)
+          ? (g.buys24h / g.sells24h).toFixed(2) + "x"
+          : "—";
         const devStatus = g?.devStatus;
         const devDot = devStatus === "hold" ? "🟢" : devStatus === "sell" ? "🔴" : "";
         const renounced = g?.renouncedMint && g?.renouncedFreeze ? "✅ renounced" : "";
@@ -1414,7 +1429,11 @@ function coinCard(c, tier, md) {
         <div class="kv"><span class="k">liq</span>  <span class="v">${fmtCompact(liq)}</span></div>
         <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
+        <div class="kv"><span class="k">degens</span><span class="v ${hasGMGN ? "" : "dim"}">${degens}</span></div>
+        <div class="kv"><span class="k">kols</span>  <span class="v ${hasGMGN ? "" : "dim"}">${kols}</span></div>
         <div class="kv"><span class="k">holders</span><span class="v ${hasGMGN ? "" : "dim"}">${holders}</span></div>
+        <div class="kv"><span class="k">swaps</span><span class="v ${hasGMGN ? "" : "dim"}">${swaps}</span></div>
+        <div class="kv"><span class="k">b/s</span><span class="v ${hasGMGN ? "" : "dim"}">${bs}</span></div>
         <div class="kv"><span class="k">dev</span><span class="v ${devStatus ? (devStatus === "hold" ? "pos" : "neg") : "dim"}">${devDot} ${devStatus || "—"}</span></div>
       </div>
       ${secItems.length ? `<div class="sec-row">${secItems.join(" · ")}</div>` : ""}`;
