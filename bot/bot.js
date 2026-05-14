@@ -646,10 +646,13 @@ const gmgnCache = new Map(); // key: "chain:address" -> { data, fetchedAt }
 
 async function execGMGN(args) {
   const { execFile } = await import('child_process');
+  const { resolve } = await import('path');
   const env = { ...process.env };
   if (GMGN_API_KEY) env.GMGN_API_KEY = GMGN_API_KEY;
+  // Resolve local gmgn-cli binary (works in Docker + local dev)
+  const bin = resolve(process.cwd(), 'node_modules/.bin/gmgn-cli');
   return new Promise((resolve, reject) => {
-    execFile('gmgn-cli', args, { timeout: 15000, env }, (err, stdout, stderr) => {
+    execFile(bin, args, { timeout: 15000, env }, (err, stdout, stderr) => {
       if (err) return reject(new Error(stderr || err.message));
       try {
         resolve(JSON.parse(stdout.trim()));
