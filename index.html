@@ -655,7 +655,7 @@
 //   "https://kwy-feed.up.railway.app/feed"
 // Leave blank to show the offline placeholder. See bot/README.md for setup.
 const FEED_URL = "https://kwy.onrender.com/feed";
-const FEED_POLL_MS = 15000;
+const FEED_POLL_MS = 30000;
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
 
@@ -1337,7 +1337,7 @@ function coinCard(c, tier, md) {
           <div class="sym">$${escapeHTML(c.symbol)} ${isLive?'<span class="live-dot" title="live from Dexscreener"></span>':""}</div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
-        ${c.score != null && !isLive ? `<div class="score ${scoreClass(c.score)}" title="Score from last scan">${Math.round(c.score)}</div>` : ""}
+        ${c.score != null ? `<div class="score ${scoreClass(c.score)}" title="Score from last scan">${Math.round(c.score)}</div>` : ""}
       </div>
       ${(() => {
         // Always show the banner so it doesn't flicker in/out.
