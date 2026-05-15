@@ -1327,7 +1327,7 @@ function coinCard(c, tier, md) {
   const devHolding = c.risk ? /Dev\s+Holding|Dev\s+Hold/i.test(c.risk) : false;
   const devExited  = c.risk ? /Dev\s+Exited|Dev\s+Sell|Dev\s+Sold/i.test(c.risk) : false;
   const devStatus  = devHolding ? "hold" : devExited ? "sell" : null;
-  const devDot     = devStatus === "hold" ? "�" : devStatus === "sell" ? "🟢" : "";
+  const devDot     = devStatus === "hold" ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff5577;margin-right:4px;vertical-align:middle;"></span>` : devStatus === "sell" ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;"></span>` : "";
   const devLabel   = devStatus === "hold" ? "holding" : devStatus === "sell" ? "exited" : "—";
 
   return `
