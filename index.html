@@ -1923,10 +1923,12 @@ function startBurpboardPolling() {
   if (BURP_URL) setInterval(pollBurpboard, BURP_POLL_MS);
 }
 function startFeedPolling(){
-  pollFeed();
   pollIntelFeed();
   if (FEED_URL) {
-    setInterval(pollFeed, FEED_POLL_MS);
+    setTimeout(() => {
+      pollFeed();
+      setInterval(pollFeed, FEED_POLL_MS);
+    }, 5000);
     setInterval(pollIntelFeed, INTEL_POLL_MS);
   }
 }
