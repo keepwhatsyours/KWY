@@ -1385,22 +1385,33 @@ function coinCard(c, tier, md) {
 
 function renderMarketScan(md) {
   const tiers = ["big","mid","low"];
+  const targets = { big: 3, mid: 3, low: 6 };
   const seen = new Set();                 // ← cross-tier dedupe: lower tier wins
   const sections = tiers.map(t => {
-    const post = md.latestByTier[t];
-    if (!post) return "";
-    const uniqueCoins = post.coins.filter(c => {
-      const key = c.contract || c.symbol;
-      if (seen.has(key)) return false;    // skip if already shown in a lower tier
-      seen.add(key);
-      return true;
-    });
+    const target = targets[t];
+    const tierPosts = md.posts.filter(p => p.tier === t);
+    if (!tierPosts.length) return "";
+
+    const uniqueCoins = [];
+    for (const post of tierPosts) {
+      for (const c of post.coins) {
+        const key = c.contract || c.symbol;
+        if (seen.has(key)) continue;      // skip if already shown in a lower tier
+        if (uniqueCoins.some(uc => (uc.contract || uc.symbol) === key)) continue; // skip dupes within this tier
+        seen.add(key);
+        uniqueCoins.push(c);
+        if (uniqueCoins.length >= target) break;
+      }
+      if (uniqueCoins.length >= target) break;
+    }
+
+    const latestPost = tierPosts[0];
     return `
       <div class="tier-section">
         <div class="tier-head">
           <span class="badge ${t}">${tierLabel[t]}</span>
           <span>${tierBlurb[t]}</span>
-          <span class="when">${fmtAgo(post.ts)} · ${uniqueCoins.length} coin${uniqueCoins.length===1?"":"s"}</span>
+          <span class="when">${fmtAgo(latestPost.ts)} · ${uniqueCoins.length} coin${uniqueCoins.length===1?"":"s"}</span>
         </div>
         <div class="coin-grid">${uniqueCoins.map(c => coinCard(c, t, md)).join("")}</div>
       </div>
