@@ -656,6 +656,7 @@
 // Leave blank to show the offline placeholder. See bot/README.md for setup.
 const FEED_URL = "https://kwy.onrender.com/feed";
 const FEED_POLL_MS = 30000;
+const RESET_DATE = "2026-05-18"; // posts before this date are ignored for scans / tracking
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
 
@@ -981,6 +982,15 @@ function dexToLive(pair) {
 // Stores the highest live MCAP ever seen per contract across all sessions.
 // This is the ONLY accurate ATH — it tracks Dexscreener live data over time.
 const ATH_KEY = "kwy-ath-v1";
+const ATH_RESET_KEY = "kwy-ath-reset-v1";
+function maybeResetATH() {
+  const lastReset = localStorage.getItem(ATH_RESET_KEY);
+  if (lastReset !== RESET_DATE) {
+    localStorage.removeItem(ATH_KEY);
+    localStorage.setItem(ATH_RESET_KEY, RESET_DATE);
+  }
+}
+maybeResetATH();
 function getStoredATH() {
   try {
     const raw = localStorage.getItem(ATH_KEY);
@@ -1181,7 +1191,8 @@ function parseBubbaPost(msg) {
 }
 
 function buildMarketData(messages) {
-  const posts = messages.map(parseBubbaPost).filter(Boolean);
+  const resetIso = new Date(RESET_DATE).toISOString();
+  const posts = messages.map(parseBubbaPost).filter(Boolean).filter(p => p.ts >= resetIso);
   // posts come newest-first from /feed; keep that order
 
   // Attach post-level metadata to each coin so flagsBySymbol can hold REFERENCES
@@ -1435,8 +1446,8 @@ function renderFlagHistory(md) {
     if (!first.mcap || !current || current <= first.mcap) continue;
     const gain = ((current - first.mcap) / first.mcap) * 100;
     const ts = new Date(first.ts);
-    let t = ts.toISOString().slice(5,16).replace("T"," ");
-    if (first.tier === 'low' && t === '05-10 15:23') t = '05-10 14:00';
+    const pad = n => String(n).padStart(2, '0');
+    const t = `${pad(ts.getMonth()+1)}/${pad(ts.getDate())}/${ts.getFullYear()} @ ${pad(ts.getHours())}:${pad(ts.getMinutes())}`;
     wins.push({
       symbol: first.symbol,
       name: first.name || '',
