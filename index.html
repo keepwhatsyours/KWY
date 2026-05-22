@@ -502,6 +502,22 @@
     text-align:center;text-transform:uppercase;
     border-top:1px solid var(--green-deep);padding-top:14px;
   }
+  footer .social-links{
+    display:flex;justify-content:center;align-items:center;gap:14px;
+    margin:10px 0 6px;
+  }
+  footer .social-links a{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border:1px solid var(--green-deep);
+    border-radius:4px;color:var(--green-dim);
+    transition:background .15s,color .15s,border-color .15s,box-shadow .15s;
+  }
+  footer .social-links a:hover{
+    background:var(--green);color:#000;border-color:var(--green);
+    box-shadow:0 0 12px rgba(0,255,65,.35);
+  }
+  footer .social-links svg{width:16px;height:16px;fill:currentColor}
+  footer .social-links a.bluesky svg{width:20px;height:20px}
 
   /* data freshness indicator */
   .freshness{
@@ -616,6 +632,14 @@
 
   <footer>
     [ KEEPWHATSYOURS.AI ] · BUILT FOR DEGENS · POWERED BY OPEN CLAW · PRICES via COINGECKO
+    <div class="social-links">
+      <a href="https://x.com/KeepWhatsYours" target="_blank" rel="noopener" aria-label="X (Twitter)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+      <a href="https://bsky.app/profile/keepwhatsyours.bsky.social" class="bluesky" target="_blank" rel="noopener" aria-label="Bluesky">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.99C2.566.537 1.195.59.468 1.16c-.728.572-.835 1.69-.642 2.425.577 2.194 2.476 7.425 4.124 7.425 1.647 0 2.988-1.37 4.05-1.37 1.063 0 2.403 1.37 4.05 1.37 1.648 0 3.547-5.23 4.124-7.425.193-.735.086-1.853-.642-2.425-.727-.57-2.098-.623-3.734.65-2.752 1.937-5.711 5.876-6.798 7.99z"/></svg>
+      </a>
+    </div>
     <div class="disclaimer">Disclaimer: this is not financial advice. Meme coins are extremely volatile and you can lose 100% of your capital. The picks shown here are AI-generated experiments. Do your own research.</div>
   </footer>
 </div>
