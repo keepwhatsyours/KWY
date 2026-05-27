@@ -1382,7 +1382,7 @@ function coinCard(c, tier, md) {
           <div class="sym">$${escapeHTML(c.symbol)} ${isLive?'<span class="live-dot" title="live from Dexscreener"></span>':""}</div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
-        ${c.score != null ? `<div class="score ${scoreClass(c.score)}" title="Score from last scan">${Math.round(c.score)}</div>` : ""}
+        ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
       </div>
       ${(() => {
         // Always show the banner so it doesn't flicker in/out.
