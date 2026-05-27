@@ -1427,7 +1427,7 @@ function coinCard(c, tier, md) {
 
 function renderMarketScan(md) {
   const tiers = ["big","mid","low"];
-  const targets = { big: 3, mid: 3, low: 8 };
+  const targets = { big: 3, mid: 3, low: 4 };
   const seen = new Set();                 // ← cross-tier dedupe: lower tier wins
   const sections = tiers.map(t => {
     const target = targets[t];
