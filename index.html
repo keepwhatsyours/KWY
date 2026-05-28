@@ -1803,7 +1803,7 @@ function renderFeed(messages){
   }, 1800);
 
   document.getElementById("feed-meta").textContent =
-    `${messages.length} msgs · live · last sync ${new Date().toISOString().slice(11,19)} UTC`;
+    `${messages.length} msgs · live · last sync ${new Date().toISOString().slice(11,19)}`;
 }
 
 // Poll the Discord-driven /feed for the scan panels (MARKET SCAN, FLAG HISTORY,
@@ -1904,7 +1904,7 @@ function renderBurpboard(data) {
   const s = data.summary || {};
   const d = new Date(data.updated);
   const pad = n => String(n).padStart(2, '0');
-  meta.textContent = `last 24h · last sync ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+  meta.textContent = `last 24h · last sync ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
   summaryEl.innerHTML = `
     ${s.avgGain ? `<span class="pill">avg: <b>${escapeHTML(s.avgGain)}</b></span>` : ""}
     ${s.top10   ? `<span class="pill">top 10: <b>${escapeHTML(s.top10)}</b></span>` : ""}
