@@ -1936,8 +1936,13 @@ function renderBurpboard(data) {
     if (t.chartUrl) return t.chartUrl;
     const slug = chainSlug[String(t.chain || "").toLowerCase()];
     const ca = copyableAddress(t);
-    if (slug && slug !== "solana" && ca && /^0x[a-f0-9]{40}$/i.test(ca)) {
-      return `https://dexscreener.com/${slug}/${ca}`;
+    if (slug && ca) {
+      if (slug === "solana" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca)) {
+        return `https://dexscreener.com/solana/${ca}`;
+      }
+      if (/^0x[a-f0-9]{40}$/i.test(ca)) {
+        return `https://dexscreener.com/${slug}/${ca}`;
+      }
     }
     return `https://dexscreener.com/search?q=${encodeURIComponent(t.symbol)}`;
   };
