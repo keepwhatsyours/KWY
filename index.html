@@ -1744,7 +1744,7 @@ function renderFeed(messages){
   const f = document.getElementById("feed");
   if(!messages.length){
     f.innerHTML = `<div class="feed-empty">// channel is quiet. waiting for transmission…</div>`;
-    document.getElementById("feed-meta").textContent = "0 msgs · live";
+    document.getElementById("feed-meta").textContent = "last sync —";
     return;
   }
 
@@ -1804,7 +1804,7 @@ function renderFeed(messages){
   }, 1800);
 
   document.getElementById("feed-meta").textContent =
-    `${messages.length} msgs · live · last sync ${new Date().toISOString().slice(11,19)}`;
+    `last sync ${new Date().toISOString().slice(11,19)}`;
 }
 
 // Poll the Discord-driven /feed for the scan panels (MARKET SCAN, FLAG HISTORY,
