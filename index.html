@@ -1460,7 +1460,7 @@ function renderMarketScan(md) {
         <div class="tier-head">
           <span class="badge ${t}">${tierLabel[t]}</span>
           <span>${tierBlurb[t]}</span>
-          <span class="when">${(()=>{const d=new Date(latestPost.ts);const p=n=>String(n).padStart(2,'0');return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;})()}</span>
+          <span class="when">${(()=>{const d=new Date(latestPost.ts);const p=n=>String(n).padStart(2,'0');return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} on ${p(d.getUTCMonth()+1)}/${p(d.getUTCDate())}/${d.getUTCFullYear()}`;})()}</span>
         </div>
         <div class="coin-grid">${uniqueCoins.map(c => coinCard(c, t, md)).join("")}</div>
       </div>
@@ -1594,7 +1594,15 @@ function renderWinnersLosers(md) {
   const top   = perf[0];
   const worst = perf[perf.length - 1];
 
-  meta.textContent = `${perf.length} COINS / 24 HRS`;
+  const latestTs = md.posts[0]?.ts;
+  const fmtSync = iso => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const p = n => String(n).padStart(2, '0');
+    return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} on ${p(d.getUTCMonth()+1)}/${p(d.getUTCDate())}/${d.getUTCFullYear()}`;
+  };
+
+  meta.textContent = fmtSync(latestTs);
   summary.innerHTML = `
     <span class="pill">tracked: <b>${perf.length}</b></span>
     <span class="pill">winners: <b>${winners.length}</b></span>
@@ -1905,7 +1913,7 @@ function renderBurpboard(data) {
   const s = data.summary || {};
   const d = new Date(data.updated);
   const pad = n => String(n).padStart(2, '0');
-  meta.textContent = `last sync ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+  meta.textContent = `LAST SYNC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} on ${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()}`;
   summaryEl.innerHTML = `
     ${s.avgGain ? `<span class="pill">avg: <b>${escapeHTML(s.avgGain)}</b></span>` : ""}
     ${s.top10   ? `<span class="pill">top 10: <b>${escapeHTML(s.top10)}</b></span>` : ""}
