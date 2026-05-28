@@ -1333,11 +1333,8 @@ function coinCard(c, tier, md) {
   // Use this coin's own post timestamp for "called at" time (the scan that produced this card)
   const calledTs = c.ts != null ? c.ts : null;
 
-  // Look up the first-ever flag mcap for this contract (the true "called at" MC)
-  const allFlags = (md?.flagsByContract && c.contract) ? (md.flagsByContract.get(c.contract) || []) : [];
-  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-  const firstFlag = sortedFlags[0];
-  const calledMcap = firstFlag?.mcap != null ? firstFlag.mcap : null;
+  // Use this coin's own mcap from the scan that produced this card
+  const calledMcap = c.mcap != null ? c.mcap : null;
 
   const calledPrice = c.price;
   const mcapDelta   = (live?.mcap != null && calledMcap)
