@@ -622,7 +622,7 @@
       <table id="track">
         <thead>
           <tr>
-            <th>SYM</th>
+            <th>COIN</th>
             <th class="num">CALLED AT</th>
             <th class="num">ATH</th>
             <th class="num">GAIN</th>
@@ -1519,7 +1519,7 @@ function renderFlagHistory(md) {
       </tr>
     `;
   }).join("");
-  document.getElementById("tr-meta").textContent = `${wins.length} tracked · showing top 10 by gain`;
+  document.getElementById("tr-meta").textContent = `${wins.length} tracked`;
 }
 
 /* compute per-token MCAP change for ROLLING LAST 24 HOURS:
