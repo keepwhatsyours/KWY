@@ -1510,7 +1510,7 @@ function renderFlagHistory(md) {
       ? `<td class="sym-cell"><a href="${dexUrl}" target="_blank" rel="noopener" style="color:var(--green);text-decoration:none;border-bottom:1px dashed var(--green-deep)" title="open chart on Dexscreener"><b>$${escapeHTML(w.symbol)}</b></a><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(w.name)}</div></td>`
       : `<td><b>$${escapeHTML(w.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(w.name)}</div></td>`;
     return `
-      <tr>
+      <tr onclick="window.open('${dexUrl || ''}', '_blank')" style="cursor:pointer" title="${dexUrl ? 'open chart on Dexscreener' : ''}">
         ${symCell}
         <td class="num">${fmtCompact(w.calledAt)}</td>
         <td class="num">${fmtCompact(w.current)}</td>
