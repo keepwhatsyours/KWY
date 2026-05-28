@@ -1469,8 +1469,10 @@ function renderMarketScan(md) {
   document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
   const now = new Date();
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  // Show yesterday's date until the 04:00 UTC scan job, then switch to current date
+  const displayDate = now.getUTCHours() < 4 ? new Date(now.getTime() - 86400000) : now;
   document.getElementById("scan-meta").textContent =
-    `${now.getUTCDate()} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
+    `${displayDate.getUTCDate()} ${months[displayDate.getUTCMonth()]} ${displayDate.getUTCFullYear()}`;
 }
 
 function renderFlagHistory(md) {
