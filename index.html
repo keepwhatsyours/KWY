@@ -154,7 +154,7 @@
     display:flex;align-items:center;gap:10px;
   }
   .panel h2::before{content:"▌";color:var(--green);text-shadow:0 0 6px var(--green)}
-  .panel h2 .meta{margin-left:auto;color:var(--green-dim);font-weight:400;font-size:11px;letter-spacing:.1em}
+  .panel h2 .meta{margin-left:auto;color:var(--green-dim);font-weight:400;font-size:11px;letter-spacing:.1em;text-align:right;white-space:pre-line;line-height:1.35}
 
   /* stat cards */
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
@@ -1599,7 +1599,7 @@ function renderWinnersLosers(md) {
     const d = new Date(iso);
     const p = n => String(n).padStart(2, '0');
     const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-    return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}\nLAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+    return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}\n${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   };
 
   meta.textContent = fmtSync(latestTs);
@@ -1814,7 +1814,7 @@ function renderFeed(messages){
   const now = new Date();
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   document.getElementById("feed-meta").textContent =
-    `${now.getUTCDate()} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}\nLAST SYNC ${now.toISOString().slice(11,19)}`;
+    `LAST SYNC ${now.toISOString().slice(11,19)}\n${now.getUTCDate()} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
 }
 
 // Poll the Discord-driven /feed for the scan panels (MARKET SCAN, FLAG HISTORY,
@@ -1916,7 +1916,7 @@ function renderBurpboard(data) {
   const d = new Date(data.updated);
   const pad = n => String(n).padStart(2, '0');
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-  meta.textContent = `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}\nLAST SYNC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+  meta.textContent = `LAST SYNC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}\n${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   summaryEl.innerHTML = `
     ${s.avgGain ? `<span class="pill">avg: <b>${escapeHTML(s.avgGain)}</b></span>` : ""}
     ${s.top10   ? `<span class="pill">top 10: <b>${escapeHTML(s.top10)}</b></span>` : ""}
