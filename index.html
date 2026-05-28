@@ -1460,7 +1460,7 @@ function renderMarketScan(md) {
         <div class="tier-head">
           <span class="badge ${t}">${tierLabel[t]}</span>
           <span>${tierBlurb[t]}</span>
-          <span class="when">${(()=>{const d=new Date(latestPost.ts);const p=n=>String(n).padStart(2,'0');return `LAST SYNC ${p(d.getUTCMonth()+1)}/${p(d.getUTCDate())}/${String(d.getUTCFullYear()).slice(-2)} @ ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;})()}</span>
+          <span class="when">${(()=>{const d=new Date(latestPost.ts);const p=n=>String(n).padStart(2,'0');return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;})()}</span>
         </div>
         <div class="coin-grid">${uniqueCoins.map(c => coinCard(c, t, md)).join("")}</div>
       </div>
@@ -1599,7 +1599,7 @@ function renderWinnersLosers(md) {
     if (!iso) return "";
     const d = new Date(iso);
     const p = n => String(n).padStart(2, '0');
-    return `LAST SYNC ${p(d.getUTCMonth()+1)}/${p(d.getUTCDate())}/${String(d.getUTCFullYear()).slice(-2)} @ ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+    return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
   };
 
   meta.textContent = fmtSync(latestTs);
@@ -1913,7 +1913,7 @@ function renderBurpboard(data) {
   const s = data.summary || {};
   const d = new Date(data.updated);
   const pad = n => String(n).padStart(2, '0');
-  meta.textContent = `LAST SYNC ${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${String(d.getUTCFullYear()).slice(-2)} @ ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  meta.textContent = `LAST SYNC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
   summaryEl.innerHTML = `
     ${s.avgGain ? `<span class="pill">avg: <b>${escapeHTML(s.avgGain)}</b></span>` : ""}
     ${s.top10   ? `<span class="pill">top 10: <b>${escapeHTML(s.top10)}</b></span>` : ""}
