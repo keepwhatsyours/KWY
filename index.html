@@ -1386,9 +1386,15 @@ function coinCard(c, tier, md) {
         ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
       </div>
       ${(() => {
-        // Banner: live mcap vs this scan's snapshot mcap (called-at baseline).
-        // No fallback — if live data isn't available yet, show loading.
-        const delta = mcapDelta;
+        // Banner: live mcap vs this scan's snapshot mcap.
+        // Sanity-check: if the ratio is >100× or <1/100×, the baseline data is
+        // likely garbage (e.g. $910M called-at vs $234K current). Fall back to
+        // the embed's own 5m change so we don't show nonsense like ▼ 100.0%.
+        const ratio = (mcap != null && calledMcap != null && calledMcap > 0)
+          ? mcap / calledMcap : 1;
+        const delta = (mcapDelta != null && ratio > 0.01 && ratio < 100)
+          ? mcapDelta
+          : (c.change?.["5m"] ?? null);
         if (delta == null) {
           return `<div class="mcap-banner loading">&nbsp;</div>`;
         }
