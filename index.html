@@ -1330,17 +1330,25 @@ function coinCard(c, tier, md) {
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = !!live;
 
-  // Use this coin's own post timestamp for "called at" time (the scan that produced this card)
-  const calledTs = c.ts != null ? c.ts : null;
+  // Find the MOST RECENT flag for this token across all scans (by contract, then symbol).
+  // Deduplication can pass an older coin object to coinCard, so we explicitly
+  // look up the latest flag to ensure "called at" and the banner are current.
+  const allFlags = c.contract && md.flagsByContract.has(c.contract)
+    ? md.flagsByContract.get(c.contract)
+    : md.flagsBySymbol.get(c.symbol) || [];
+  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  const latestFlag = sortedFlags[sortedFlags.length - 1] || c;
 
-  // Use this coin's own mcap from the scan that produced this card
-  const calledMcap = c.mcap != null ? c.mcap : null;
+  // CALLED AT = most recent flag (not the first-ever flag)
+  const calledTs   = latestFlag.ts   ?? c.ts   ?? null;
+  const calledMcap = latestFlag.mcap ?? c.mcap ?? null;
+  const calledPrice = latestFlag.price ?? c.price ?? null;
 
-  const calledPrice = c.price;
-  const mcapDelta   = (live?.mcap != null && calledMcap)
-                        ? ((live.mcap - calledMcap) / calledMcap) * 100 : null;
-  const priceDelta  = (live?.price != null && calledPrice)
-                        ? ((live.price - calledPrice) / calledPrice) * 100 : null;
+  // Banner: change from most-recent flag mcap to live/current mcap
+  const mcapDelta   = (mcap != null && calledMcap != null && calledMcap > 0)
+                        ? ((mcap - calledMcap) / calledMcap) * 100 : null;
+  const priceDelta  = (price != null && calledPrice != null && calledPrice > 0)
+                        ? ((price - calledPrice) / calledPrice) * 100 : null;
   const deltaSpan = v => v == null ? "" :
     `<span class="delta ${v>=0?"pos":"neg"}">${v>=0?"▲ +":"▼ "}${Math.abs(v).toFixed(1)}%</span>`;
 
