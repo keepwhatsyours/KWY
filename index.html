@@ -1330,21 +1330,13 @@ function coinCard(c, tier, md) {
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = !!live;
 
-  // Find the MOST RECENT flag for this token across all scans (by contract, then symbol).
-  // Deduplication can pass an older coin object to coinCard, so we explicitly
-  // look up the latest flag to ensure "called at" and the banner are current.
-  const allFlags = c.contract && md.flagsByContract.has(c.contract)
-    ? md.flagsByContract.get(c.contract)
-    : md.flagsBySymbol.get(c.symbol) || [];
-  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-  const latestFlag = sortedFlags[sortedFlags.length - 1] || c;
+  // CALLED AT = this scan's own timestamp and snapshot mcap (the post that produced this card).
+  // Deduplication already ensures `c` is the most recent occurrence across tiers.
+  const calledTs   = c.ts   ?? null;
+  const calledMcap = c.mcap ?? null;
+  const calledPrice = c.price ?? null;
 
-  // CALLED AT = most recent flag (not the first-ever flag)
-  const calledTs   = latestFlag.ts   ?? c.ts   ?? null;
-  const calledMcap = latestFlag.mcap ?? c.mcap ?? null;
-  const calledPrice = latestFlag.price ?? c.price ?? null;
-
-  // Banner: change from most-recent flag mcap to live/current mcap
+  // Banner: live mcap vs this scan's snapshot mcap, or fallback to embed's 5m change
   const mcapDelta   = (mcap != null && calledMcap != null && calledMcap > 0)
                         ? ((mcap - calledMcap) / calledMcap) * 100 : null;
   const priceDelta  = (price != null && calledPrice != null && calledPrice > 0)
@@ -1394,9 +1386,9 @@ function coinCard(c, tier, md) {
         ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
       </div>
       ${(() => {
-        // Always show the banner so it doesn't flicker in/out.
-        // Prefer live mcap delta; fall back to snapshot 5m change.
-        const delta = mcapDelta ?? c.change["5m"];
+        // Banner: live mcap vs this scan's snapshot mcap (called-at baseline).
+        // No fallback — if live data isn't available yet, show loading.
+        const delta = mcapDelta;
         if (delta == null) {
           return `<div class="mcap-banner loading">&nbsp;</div>`;
         }
