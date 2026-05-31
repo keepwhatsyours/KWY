@@ -268,6 +268,7 @@
   .coin.tier-big{border-left:3px solid var(--green);box-shadow:inset 2px 0 0 rgba(0,255,65,.12)}
   .coin.tier-mid{border-left:3px solid var(--amber)}
   .coin.tier-low{border-left:3px solid #ff5577}
+  .coin.is-quarantined{border-color:rgba(255,85,119,.55);background:rgba(255,85,119,.035)}
   .coin .row1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
   .coin .meta-row{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--green-dim);margin-bottom:8px;line-height:1.4}
   .coin .meta-row span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -586,18 +587,26 @@
   .scan-controls{
     display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;
   }
+  .scan-controls .control-spacer{flex:1 1 auto}
   .scan-controls select,
+  .scan-controls input,
   .scan-controls button{
     background:rgba(0,255,65,.035);border:1px solid var(--green-deep);
     color:var(--green);font-family:var(--mono);font-size:10.5px;
     text-transform:uppercase;letter-spacing:.08em;border-radius:3px;
     padding:5px 8px;min-height:28px;
   }
+  .scan-controls input{
+    min-width:220px;text-transform:none;letter-spacing:.04em;
+  }
+  .scan-controls input::placeholder{color:var(--green-dim);text-transform:uppercase;letter-spacing:.08em}
   .scan-controls button{cursor:pointer}
   .scan-controls button.active{
     background:var(--green);color:#000;border-color:var(--green);
     box-shadow:0 0 10px rgba(0,255,65,.25);
   }
+  .debug-toggle{opacity:.45}
+  .debug-toggle.active{opacity:1}
   .watch-btn{
     margin-left:6px;background:rgba(0,255,65,.035);
     border:1px solid var(--green-deep);color:var(--green-dim);
@@ -613,6 +622,28 @@
   .coin.expanded .coin-detail{display:grid}
   .coin-detail span{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em}
   .coin-detail b{display:block;color:#cdeacd;font-weight:600;font-variant-numeric:tabular-nums}
+  .coin-mcap-line{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    margin:7px 0 5px;padding:6px 8px;border:1px solid rgba(0,255,65,.08);
+    background:rgba(0,255,65,.025);border-radius:3px;
+  }
+  .coin-mcap-line span{font-size:10px;color:var(--green-dim);text-transform:uppercase;letter-spacing:.1em}
+  .coin-mcap-line b{font-size:17px;color:#cdeacd;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(0,255,65,.28)}
+  .coin-mcap-line small{font-size:10px;color:var(--green-dim);font-variant-numeric:tabular-nums}
+  .pinned-section{
+    margin:2px 0 12px;padding-bottom:10px;border-bottom:1px dashed rgba(0,255,65,.16);
+  }
+  .pinned-head{
+    display:flex;align-items:center;gap:8px;margin:2px 0 8px;
+    font-size:11px;color:var(--green-dim);text-transform:uppercase;letter-spacing:.14em;
+  }
+  .pinned-head b{color:var(--green);font-weight:700}
+  .audit-debug{
+    display:none;margin-top:8px;padding:7px;border:1px dashed rgba(255,176,0,.35);
+    color:#cdeacd;background:rgba(255,176,0,.035);font-size:10px;line-height:1.45;
+    white-space:pre-wrap;overflow:auto;max-height:170px;
+  }
+  .coin.expanded .audit-debug{display:block}
   footer .disclaimer{color:#666;text-transform:none;letter-spacing:0;margin-top:6px;font-size:11px;line-height:1.5;max-width:760px;margin-left:auto;margin-right:auto}
 
   /* small */
@@ -637,10 +668,20 @@
     .coin-grid{grid-template-columns:1fr;gap:10px}
     .coin{padding:11px 10px}
     .coin .mcap-banner{font-size:20px;min-height:40px}
+    .coin .row1{margin-bottom:4px}
+    .coin:not(.expanded) .coin-detail,
+    .coin:not(.expanded) .kvs,
+    .coin:not(.expanded) .risk-line,
+    .coin:not(.expanded) .chg,
+    .coin:not(.expanded) .ca,
+    .coin:not(.expanded) .links,
+    .coin:not(.expanded) .source-line,
+    .coin:not(.expanded) .audit-debug{display:none}
     .coin .kvs{grid-template-columns:1fr;gap:4px}
     .coin .kvs.primary{grid-template-columns:1fr 1fr}
     .coin-detail{grid-template-columns:1fr 1fr}
-    .scan-controls select,.scan-controls button{flex:1;min-width:120px}
+    .scan-controls select,.scan-controls button,.scan-controls input{flex:1;min-width:120px}
+    .scan-controls .control-spacer{display:none}
     .data-strip{display:block;line-height:1.55}
   }
 </style>
@@ -710,7 +751,17 @@
         <option value="down">biggest down</option>
         <option value="newest">newest</option>
       </select>
+      <select id="delta-mode" title="UP/DOWN mode">
+        <option value="called">called → now</option>
+        <option value="scan">latest scan → now</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+      </select>
+      <input id="scan-search" type="search" autocomplete="off" spellcheck="false" placeholder="search ticker or CA" title="search ticker, name, or contract" />
+      <span class="control-spacer"></span>
+      <button id="debug-toggle" class="debug-toggle" type="button" title="toggle raw data audit">dbg</button>
     </div>
+    <div id="scan-freshness" class="data-strip">// dex live: <b>0</b> · baselines: <b>0</b> · feed: <b>awaiting</b></div>
     <div id="market-scan"></div>
   </div>
 
@@ -1519,7 +1570,14 @@ const setDataStrip = (id, html) => {
 };
 const WATCHLIST_KEY = "kwy-watchlist-v1";
 let currentMarketData = null;
-let scanControls = { tier: "all", filter: "all", sort: "default" };
+let scanControls = {
+  tier: "all",
+  filter: "all",
+  sort: "default",
+  deltaMode: "called",
+  search: "",
+  debug: false,
+};
 
 function getWatchlist() {
   try {
@@ -1679,6 +1737,116 @@ function resolveCalledBaseline(contract, sortedFlags, live, fallbackCoin = null)
     : null;
 }
 
+function getSortedFlagsForCoin(c, md) {
+  const allFlags = c.contract && md.flagsByContract.has(c.contract)
+    ? md.flagsByContract.get(c.contract)
+    : md.flagsBySymbol.get(c.symbol) || [];
+  return [...allFlags].sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
+}
+function sourceLabelForLive(live) {
+  return live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
+}
+function coinAudit(c, md) {
+  const live = c.live;
+  const sortedFlags = getSortedFlagsForCoin(c, md);
+  const latestFlagWithMcap = latestNormalizedFlagWithMcap(sortedFlags, live);
+  const normalizedCardMcap = normalizeSnapshotMcap(c, live);
+  const called = resolveCalledBaseline(c.contract, sortedFlags, live, c);
+  const currentMcap = live?.mcap ?? latestFlagWithMcap?.normalizedMcap ?? normalizedCardMcap.mcap ?? null;
+  const scanMcap = latestFlagWithMcap?.normalizedMcap ?? normalizedCardMcap.mcap ?? null;
+  const dislocation = live?.mcap && normalizedCardMcap.mcap ? mcapRatio(live.mcap, normalizedCardMcap.mcap) : 1;
+  const unresolvedOutlier = !!(dislocation && dislocation >= MCAP_PRICE_CORRECTION_RATIO && !normalizedCardMcap.corrected);
+  return {
+    live,
+    sortedFlags,
+    latestFlagWithMcap,
+    normalizedCardMcap,
+    called,
+    calledTs: called?.ts ?? null,
+    calledMcap: called?.mcap ?? null,
+    currentMcap,
+    scanMcap,
+    sourceLabel: sourceLabelForLive(live),
+    dislocation,
+    unresolvedOutlier,
+    quarantined: unresolvedOutlier,
+  };
+}
+function deltaFromValues(from, to) {
+  return to != null && from != null && from > 0 ? ((to - from) / from) * 100 : null;
+}
+function deltaForMode(c, audit, mode = scanControls.deltaMode) {
+  const change = audit.live?.change || {};
+  if (mode === "scan") {
+    const delta = deltaFromValues(audit.scanMcap, audit.currentMcap);
+    return {
+      mode,
+      label: "scan",
+      delta,
+      from: audit.scanMcap,
+      to: audit.currentMcap,
+      title: delta == null
+        ? `Awaiting live mcap. Scan: ${fmtCompact(audit.scanMcap)}. Source: ${audit.sourceLabel}.`
+        : `Latest scan: ${fmtCompact(audit.scanMcap)} | Now: ${fmtCompact(audit.currentMcap)} | Change: ${(delta >= 0 ? "+" : "")}${delta.toFixed(1)}% | Current source: ${audit.sourceLabel}`,
+    };
+  }
+  if (mode === "1h" || mode === "24h") {
+    const delta = mode === "1h" ? (change["1h"] ?? c.change?.["1h"] ?? null) : (change["24h"] ?? null);
+    const label = mode.toUpperCase();
+    return {
+      mode,
+      label,
+      delta,
+      from: null,
+      to: audit.currentMcap,
+      title: delta == null
+        ? `${label} change unavailable. Current source: ${audit.sourceLabel}.`
+        : `${label} change: ${(delta >= 0 ? "+" : "")}${delta.toFixed(1)}% | Current source: ${audit.sourceLabel}`,
+    };
+  }
+  const delta = deltaFromValues(audit.calledMcap, audit.currentMcap);
+  return {
+    mode: "called",
+    label: "called",
+    delta,
+    from: audit.calledMcap,
+    to: audit.currentMcap,
+    title: delta == null
+      ? `Awaiting current mcap. Called: ${fmtCompact(audit.calledMcap)}. Source: ${audit.sourceLabel}.`
+      : `Called: ${fmtCompact(audit.calledMcap)} | Now: ${fmtCompact(audit.currentMcap)} | Change: ${(delta >= 0 ? "+" : "")}${delta.toFixed(1)}% | Current source: ${audit.sourceLabel} | Called source: ${audit.called?.source ?? "current feed"}`,
+  };
+}
+function coinMatchesSearch(c) {
+  const q = scanControls.search.trim().toLowerCase();
+  if (!q) return true;
+  return [c.symbol, c.name, c.contract].some(v => String(v || "").toLowerCase().includes(q));
+}
+function coinRankDelta(c, md) {
+  const audit = coinAudit(c, md);
+  if (audit.quarantined) return null;
+  return deltaForMode(c, audit).delta;
+}
+function debugPayload(c, audit, deltaInfo) {
+  return JSON.stringify({
+    symbol: c.symbol,
+    contract: c.contract,
+    mode: deltaInfo.mode,
+    delta: deltaInfo.delta,
+    current_mcap: audit.currentMcap,
+    called: audit.called,
+    scan_mcap: audit.scanMcap,
+    card_snapshot: {
+      mcap: c.mcap,
+      normalized_mcap: audit.normalizedCardMcap.mcap,
+      raw_mcap: audit.normalizedCardMcap.rawMcap,
+      corrected: audit.normalizedCardMcap.corrected,
+      price: c.price,
+    },
+    live: audit.live,
+    server_baseline: c.contract ? getCalledBaseline(c.contract) : null,
+  }, null, 2);
+}
+
 function renderScanStats(md) {
   const top3 = md.topFlagged.slice(0,3).map(([sym,n])=>`${sym}<span style="color:var(--green-dim)">·${n}</span>`).join("&nbsp;&nbsp;") || "—";
   document.getElementById("stats").innerHTML = `
@@ -1692,8 +1860,9 @@ function renderScanStats(md) {
 
 function coinCard(c, tier, md) {
   // Prefer live data when available; fall back to Bubba Bot snapshot.
-  const live = c.live;
-  const normalizedCardMcap = normalizeSnapshotMcap(c, live);
+  const audit = coinAudit(c, md);
+  const live = audit.live;
+  const normalizedCardMcap = audit.normalizedCardMcap;
   const mcap  = live?.mcap  ?? normalizedCardMcap.mcap ?? c.mcap;
   const liq   = live?.liquidity ?? c.liquidity;
   const vol   = live?.volume24h ?? c.volume24h;
@@ -1704,26 +1873,12 @@ function coinCard(c, tier, md) {
       ? "DELAYED: GMGN fallback, Dexscreener unavailable"
       : "NOT LIVE: Discord snapshot only";
 
-  // Find ALL flags for this token across all scans (by contract, then symbol).
-  const allFlags = c.contract && md.flagsByContract.has(c.contract)
-    ? md.flagsByContract.get(c.contract)
-    : md.flagsBySymbol.get(c.symbol) || [];
-  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-  const latestFlagWithMcap = latestNormalizedFlagWithMcap(sortedFlags, live);
-
-  // CALLED AT = first flag (original call) for repeated coins, only flag for new coins.
-  // Some bot snapshots have malformed MCAP while price is sane; normalize those
-  // against the live implied supply before using them for UP/DOWN math.
-  const called = resolveCalledBaseline(c.contract, sortedFlags, live, c);
-  const calledTs = called?.ts ?? null;
-  const calledMcap = called?.mcap ?? null;
-  const calledSource = called?.source ?? "current feed";
-
-  // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
-  const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
-  const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.normalizedMcap : null);
-  const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
-                        ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
+  const called = audit.called;
+  const calledTs = audit.calledTs;
+  const calledMcap = audit.calledMcap;
+  const currentMcap = audit.currentMcap;
+  const deltaInfo = deltaForMode(c, audit);
+  const mcapDelta = audit.quarantined ? null : deltaInfo.delta;
 
   // short-term price changes — prefer live (5m/1h) over snapshot
   const ch5m = live?.change?.["5m"] ?? c.change["5m"];
@@ -1737,13 +1892,14 @@ function coinCard(c, tier, md) {
     : null;
   const health = parseWalletHealth(c.health);
   const anomalies = [];
-  const dislocation = live?.mcap && normalizedCardMcap.mcap ? mcapRatio(live.mcap, normalizedCardMcap.mcap) : 1;
-  if (dislocation >= 10 && !normalizedCardMcap.corrected) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
-  const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
-  const bannerTitle = mcapDelta == null
-    ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
-    : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
+  if (audit.quarantined) anomalies.push({ label: "data quarantine", bad: true, title: `Raw snapshot mcap ${fmtCompact(c.mcap)} conflicts with live ${fmtCompact(live?.mcap)} and could not be corrected` });
+  else if (normalizedCardMcap.corrected) anomalies.push({ label: "mcap corrected", bad: false, title: `Raw mcap ${fmtCompact(normalizedCardMcap.rawMcap)} corrected to ${fmtCompact(normalizedCardMcap.mcap)}` });
+  if (called?.corrected) anomalies.push({ label: "baseline corrected", bad: false, title: `Raw called mcap ${fmtCompact(called.rawMcap)} corrected to ${fmtCompact(called.mcap)}` });
+  const sourceLabel = audit.sourceLabel;
+  const bannerTitle = audit.quarantined ? "DATA QUARANTINE: unresolved MCAP outlier excluded from UP/DOWN rankings." : deltaInfo.title;
   const watched = isWatched(c.contract);
+  const lastDexSeen = lastDexUpdate ? fmtAgo(new Date(lastDexUpdate).toISOString()) : "—";
+  const debug = scanControls.debug ? `<pre class="audit-debug">${escapeHTML(debugPayload(c, audit, deltaInfo))}</pre>` : "";
 
   // Parse Discord swaps string: "10,681 (Buy/Sell: 1.22x)"
   let swapCount = null, swapRatio = null;
@@ -1769,7 +1925,7 @@ function coinCard(c, tier, md) {
   const devLabel   = devStatus === "hold" ? "holding" : devStatus === "sell" ? "exited" : "—";
 
   return `
-    <div class="coin tier-${tier} ${isLive?"is-live":""}" data-contract="${escapeHTML(c.contract || "")}">
+    <div class="coin tier-${tier} ${isLive?"is-live":""} ${audit.quarantined ? "is-quarantined" : ""}" data-contract="${escapeHTML(c.contract || "")}">
       <div class="row1">
         <div>
           <div class="sym">$${escapeHTML(c.symbol)} <span class="live-dot ${isLive ? "" : "offline"}" title="${escapeHTML(liveTitle)}"></span></div>
@@ -1777,13 +1933,21 @@ function coinCard(c, tier, md) {
         </div>
         <div style="display:flex;align-items:center;gap:4px">
           ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
-          ${c.contract ? `<button class="watch-btn ${watched ? "active" : ""}" data-watch="${escapeHTML(c.contract)}" title="${watched ? "remove from watchlist" : "add to watchlist"}">${watched ? "✓" : "+"}</button>` : ""}
+          ${c.contract ? `<button class="watch-btn ${watched ? "active" : ""}" data-watch="${escapeHTML(c.contract)}" title="${watched ? "unpin from top" : "pin to top"}">${watched ? "✓" : "+"}</button>` : ""}
         </div>
+      </div>
+      <div class="coin-mcap-line">
+        <span>mcap</span>
+        <b>${fmtCompact(mcap)}</b>
+        <small>liq ${fmtCompact(liq)}</small>
       </div>
       ${anomalies.length ? `<div class="source-line"><span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span></div>` : ""}
       ${(() => {
-        // Banner: % change from Discord "called at" mcap to CURRENT live mcap.
+        // Banner: selected UP/DOWN mode to current live mcap.
         const delta = mcapDelta;
+        if (audit.quarantined) {
+          return `<div class="mcap-banner neg" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">REVIEW</div>`;
+        }
         if (delta == null) {
           return `<div class="mcap-banner loading" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
         }
@@ -1791,17 +1955,22 @@ function coinCard(c, tier, md) {
         const txt = `${delta >= 0 ? "▲ +" : "▼ "}${Math.abs(delta).toFixed(1)}%`;
         return `<div class="mcap-banner ${cls}" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">${txt}</div>`;
       })()}
+      ${calledMcap != null && calledTs != null ? `<div class="called">called at <span class="mcap-val">${fmtCompact(calledMcap)} mc</span> · ${fmtAgo(calledTs || "")}</div>`:""}
       <div class="coin-detail">
         <span>called<b>${fmtCompact(calledMcap)}</b></span>
+        <span>raw called<b>${fmtCompact(called?.rawMcap)}</b></span>
+        <span>corrected<b>${called?.corrected || normalizedCardMcap.corrected ? "yes" : "no"}</b></span>
         <span>now<b>${fmtCompact(currentMcap)}</b></span>
-        <span>change<b>${mcapDelta == null ? "—" : `${mcapDelta >= 0 ? "+" : ""}${mcapDelta.toFixed(1)}%`}</b></span>
-        <span>source<b>${sourceLabel}</b></span>
+        <span>${escapeHTML(deltaInfo.label)}<b>${mcapDelta == null ? "—" : `${mcapDelta >= 0 ? "+" : ""}${mcapDelta.toFixed(1)}%`}</b></span>
+        <span>live source<b>${sourceLabel}</b></span>
+        <span>called source<b>${escapeHTML(called?.source ?? "—")}</b></span>
+        <span>last dex<b>${lastDexSeen}</b></span>
       </div>
       <div class="kvs primary">
-        <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
         <div class="kv"><span class="k">liq</span><span class="v">${fmtCompact(liq)}</span></div>
         <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
+        <div class="kv"><span class="k">mode</span><span class="v">${escapeHTML(deltaInfo.label)}</span></div>
       </div>
       <div class="kvs secondary">
         <div class="kv"><span class="k">kols</span><span class="v">${kols}</span></div>
@@ -1816,7 +1985,6 @@ function coinCard(c, tier, md) {
         ${health.bundler != null ? `<span class="${health.bundler > 20 ? "neg" : ""}">bundler ${health.bundler.toFixed(1)}%</span>` : ""}
       </div>
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
-      ${calledMcap != null && calledTs != null ? `<div class="called">called at <span class="mcap-val">${fmtCompact(calledMcap)} mc</span> · ${fmtAgo(calledTs || "")}</div>`:""}
       ${c.contract ? `<div class="ca">CA <code title="${escapeHTML(c.contract)}" onclick="navigator.clipboard.writeText('${escapeHTML(c.contract)}'); this.textContent='copied'; setTimeout(()=>this.textContent='${escapeHTML(truncCA(c.contract))}', 1200)">${escapeHTML(truncCA(c.contract))}</code></div>` : ""}
       ${(() => {
         // Prefer bot-resolved live Dexscreener URL for chart; fall back to one parsed from the embed.
@@ -1832,6 +2000,7 @@ function coinCard(c, tier, md) {
           `<a href="${escapeHTML(it.url)}" target="_blank" rel="noopener" class="link-pill">${it.label}</a>`
         ).join("")}</div>`;
       })()}
+      ${debug}
       </div>
   `;
 }
@@ -1843,20 +2012,14 @@ function coinDevExited(c) {
   return c.risk ? /Dev\s+Exited|Dev\s+Sell|Dev\s+Sold/i.test(c.risk) : false;
 }
 function coinDelta(c, md) {
-  const allFlags = c.contract && md.flagsByContract.has(c.contract)
-    ? md.flagsByContract.get(c.contract)
-    : md.flagsBySymbol.get(c.symbol) || [];
-  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-  const called = resolveCalledBaseline(c.contract, sortedFlags, c.live, c);
-  const latest = latestNormalizedFlagWithMcap(sortedFlags, c.live);
-  const current = c.live?.mcap ?? latest?.normalizedMcap ?? null;
-  return current != null && called?.mcap > 0 ? ((current - called.mcap) / called.mcap) * 100 : null;
+  return coinRankDelta(c, md);
 }
 function applyScanControls(coins, md) {
   let out = [...coins];
   if (scanControls.filter === "live") out = out.filter(c => c.live?.source === "dexscreener");
   if (scanControls.filter === "dev-exited") out = out.filter(coinDevExited);
   if (scanControls.filter === "watchlist") out = out.filter(c => isWatched(c.contract));
+  out = out.filter(coinMatchesSearch);
 
   if (scanControls.sort === "up") {
     out.sort((a, b) => (coinDelta(b, md) ?? -Infinity) - (coinDelta(a, md) ?? -Infinity));
@@ -1907,9 +2070,45 @@ function renderWatchlist(md) {
   wrap.innerHTML = rows.length ? `<div class="bb-grid">${rows.join("")}</div>` : `<div class="feed-empty">// saved tokens are not in the current feed window.</div>`;
 }
 
+function newestCoinForContract(md, contract) {
+  const flags = md.flagsByContract.get(contract) || [];
+  return [...flags].sort((a, b) => (b.ts || "").localeCompare(a.ts || ""))[0] || null;
+}
+function renderPinnedSection(md) {
+  const watched = [...getWatchlist()];
+  const coins = watched.map(contract => newestCoinForContract(md, contract)).filter(Boolean);
+  const visible = applyScanControls(coins, md);
+  if (!visible.length) return { html: "", keys: new Set() };
+  const keys = new Set(visible.map(coinKey));
+  return {
+    keys,
+    html: `
+      <div class="pinned-section">
+        <div class="pinned-head"><b>PINNED</b><span>${visible.length} watched token${visible.length === 1 ? "" : "s"}</span></div>
+        <div class="coin-grid">${visible.map(c => coinCard(c, c.tier || "big", md)).join("")}</div>
+      </div>
+    `,
+  };
+}
+
+function renderScanFreshness(md) {
+  const el = document.getElementById("scan-freshness");
+  if (!el) return;
+  const coins = md?.posts?.flatMap(p => p.coins) || [];
+  const unique = new Map();
+  for (const c of coins) if (c.contract && !unique.has(c.contract)) unique.set(c.contract, c);
+  const liveDex = [...unique.values()].filter(c => c.live?.source === "dexscreener").length;
+  const quarantined = [...unique.values()].filter(c => coinAudit(c, md).quarantined).length;
+  const baselines = Object.keys(serverCalledBaselines).length;
+  const feedAge = lastFeedUpdate ? fmtAgo(new Date(lastFeedUpdate).toISOString()) : "awaiting";
+  const dexAge = lastDexUpdate ? fmtAgo(new Date(lastDexUpdate).toISOString()) : "awaiting";
+  el.innerHTML = `// dex live: <b>${liveDex}</b> · baselines: <b>${baselines}</b> · feed: <b>${feedAge}</b> · dex: <b>${dexAge}</b>${quarantined ? ` · quarantine: <span class="bad">${quarantined}</span>` : ""}`;
+}
+
 function renderMarketScan(md) {
   const tiers = ["big","mid","low"];
   const targets = { big: 3, mid: 3, low: 4 };
+  const pinned = renderPinnedSection(md);
   const seen = new Set();                 // ← cross-tier dedupe: lower tier wins
   const sections = tiers.map(t => {
     if (scanControls.tier !== "all" && scanControls.tier !== t) return "";
@@ -1921,6 +2120,7 @@ function renderMarketScan(md) {
     for (const post of tierPosts) {
       for (const c of post.coins) {
         const key = c.contract || c.symbol;
+        if (pinned.keys.has(key)) continue;
         if (seen.has(key)) continue;      // skip if already shown in a lower tier
         if (uniqueCoins.some(uc => (uc.contract || uc.symbol) === key)) continue; // skip dupes within this tier
         seen.add(key);
@@ -1944,7 +2144,8 @@ function renderMarketScan(md) {
       </div>
     `;
   }).join("");
-  document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
+  const html = pinned.html + sections;
+  document.getElementById("market-scan").innerHTML = html || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
   renderWatchlist(md);
   const now = new Date();
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -1952,6 +2153,7 @@ function renderMarketScan(md) {
   const displayDate = now.getUTCHours() < 2 ? new Date(now.getTime() - 86400000) : now;
   document.getElementById("scan-meta").textContent =
     `${displayDate.getUTCDate()} ${months[displayDate.getUTCMonth()]} ${displayDate.getUTCFullYear()}`;
+  renderScanFreshness(md);
 }
 
 function renderFlagHistory(md) {
@@ -1961,6 +2163,7 @@ function renderFlagHistory(md) {
     if (!flags.length) continue;
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
     const newest = sorted[sorted.length - 1];
+    if (coinAudit(newest, md).quarantined) continue;
     const called = resolveCalledBaseline(contract, sorted, newest?.live, newest);
     const ath = contract ? getATH(contract) : null;
     const newestSnapshot = latestNormalizedFlagWithMcap(sorted, newest?.live);
@@ -2029,6 +2232,7 @@ function computePerformance(md) {
 
     // live MCAP — same object reference across posts, pick newest of today's flags
     const newest = sortedAsc[sortedAsc.length - 1];
+    if (coinAudit(newest, md).quarantined) continue;
     const liveMcap  = newest?.live?.mcap  ?? null;
     const livePrice = newest?.live?.price ?? null;
     const lastSnapshotMcap = latestNormalizedFlagWithMcap(sortedAsc, newest?.live)?.normalizedMcap;
@@ -2328,8 +2532,8 @@ async function pollFeed(){
 
     // Build market data and render snapshot first (instant paint).
     const md = buildMarketData(msgs);
-    renderAllScanPanels(md);
     lastFeedUpdate = Date.now();
+    renderAllScanPanels(md);
 
     // Store Discord feed messages for Intel Feed fallback
     feedMessages = msgs;
@@ -2556,6 +2760,13 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  // D = toggle card debug audit
+  if (e.key === "d" || e.key === "D") {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    scanControls.debug = !scanControls.debug;
+    document.getElementById("debug-toggle")?.classList.toggle("active", scanControls.debug);
+    if (currentMarketData) renderAllScanPanels(currentMarketData);
+  }
 });
 
 document.getElementById("tier-filter")?.addEventListener("change", (e) => {
@@ -2568,6 +2779,19 @@ document.getElementById("scan-filter")?.addEventListener("change", (e) => {
 });
 document.getElementById("scan-sort")?.addEventListener("change", (e) => {
   scanControls.sort = e.target.value;
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+});
+document.getElementById("delta-mode")?.addEventListener("change", (e) => {
+  scanControls.deltaMode = e.target.value;
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+});
+document.getElementById("scan-search")?.addEventListener("input", (e) => {
+  scanControls.search = e.target.value;
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+});
+document.getElementById("debug-toggle")?.addEventListener("click", (e) => {
+  scanControls.debug = !scanControls.debug;
+  e.currentTarget.classList.toggle("active", scanControls.debug);
   if (currentMarketData) renderAllScanPanels(currentMarketData);
 });
 document.getElementById("market-scan")?.addEventListener("click", (e) => {
@@ -2605,6 +2829,7 @@ function updateFreshness() {
   } else {
     netStatus.innerHTML = 'CONN: <span style="color:var(--red)">OFFLINE</span>';
   }
+  if (currentMarketData) renderScanFreshness(currentMarketData);
 }
 setInterval(updateFreshness, 5000);
 
@@ -2659,8 +2884,8 @@ setInterval(renderHealth, 5000);
     if (feedSnap?.messages?.length) {
       await syncCalledBaselines();
       const md = buildMarketData(feedSnap.messages);
-      renderAllScanPanels(md);
       lastFeedUpdate = Date.now();
+      renderAllScanPanels(md);
       feedMessages = feedSnap.messages;
       // enrich with live prices in background
       enrichWithLive(md).then(() => renderAllScanPanels(md)).catch(() => {});
