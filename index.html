@@ -1330,23 +1330,24 @@ function coinCard(c, tier, md) {
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = !!live;
 
-  // Find the MOST RECENT flag for this token across all scans (by contract, then symbol).
-  // Deduplication can pass an older coin object to coinCard, so we explicitly
-  // look up the latest flag to ensure "called at" always reflects the latest scan.
+  // Find the FIRST flag for this token across all scans (by contract, then symbol).
+  // "Called at" must show the ORIGINAL discovery — the first time we ever flagged it.
   const allFlags = c.contract && md.flagsByContract.has(c.contract)
     ? md.flagsByContract.get(c.contract)
     : md.flagsBySymbol.get(c.symbol) || [];
   const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  const firstFlag  = sortedFlags[0];
   const latestFlag = sortedFlags[sortedFlags.length - 1];
 
-  // CALLED AT = most recent flag across all scans (never the first-ever flag)
-  const calledTs   = latestFlag?.ts   ?? c.ts   ?? null;
-  const calledMcap = latestFlag?.mcap ?? c.mcap ?? null;
-  const calledPrice = latestFlag?.price ?? c.price ?? null;
+  // CALLED AT = first-ever flag (the original discovery that never changes)
+  const calledTs   = firstFlag?.ts   ?? c.ts   ?? null;
+  const calledMcap = firstFlag?.mcap ?? c.mcap ?? null;
+  const calledPrice = firstFlag?.price ?? c.price ?? null;
 
-  // Banner: live mcap vs this scan's snapshot mcap, or fallback to embed's 5m change
-  const mcapDelta   = (mcap != null && calledMcap != null && calledMcap > 0)
-                        ? ((mcap - calledMcap) / calledMcap) * 100 : null;
+  // Banner: total % change from FIRST flag mcap to CURRENT mcap
+  const currentMcap = latestFlag?.mcap ?? c.mcap ?? null;
+  const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
+                        ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
   const priceDelta  = (price != null && calledPrice != null && calledPrice > 0)
                         ? ((price - calledPrice) / calledPrice) * 100 : null;
   const deltaSpan = v => v == null ? "" :
@@ -1394,12 +1395,11 @@ function coinCard(c, tier, md) {
         ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
       </div>
       ${(() => {
-        // Banner: live mcap vs this scan's snapshot mcap.
+        // Banner: total % change from FIRST flag mcap to CURRENT mcap.
         // Sanity-check: if the ratio is >100× or <1/100×, the baseline data is
-        // likely garbage (e.g. $910M called-at vs $234K current). Fall back to
-        // the embed's own 5m change so we don't show nonsense like ▼ 100.0%.
-        const ratio = (mcap != null && calledMcap != null && calledMcap > 0)
-          ? mcap / calledMcap : 1;
+        // likely garbage. Fall back to the embed's own 5m change.
+        const ratio = (currentMcap != null && calledMcap != null && calledMcap > 0)
+          ? currentMcap / calledMcap : 1;
         const delta = (mcapDelta != null && ratio > 0.01 && ratio < 100)
           ? mcapDelta
           : (c.change?.["5m"] ?? null);
