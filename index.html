@@ -1620,7 +1620,6 @@ function coinCard(c, tier, md) {
   const health = parseWalletHealth(c.health);
   const anomalies = [];
   const dislocation = live?.mcap && c.mcap ? Math.max(live.mcap, c.mcap) / Math.max(1, Math.min(live.mcap, c.mcap)) : 1;
-  if (!live) anomalies.push({ label: "no live data", bad: true, title: "No live quote returned yet" });
   if (storedCallLooksBad) anomalies.push({ label: "bad baseline ignored", bad: true, title: `Rejected baseline ${fmtCompact(rawStoredCall.mcap)} for ${fmtCompact(baselineCheckMcap)} scan mcap` });
   if (dislocation >= 10) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
   const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
