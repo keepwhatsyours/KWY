@@ -94,12 +94,6 @@
     if (abs === 0) return "$0";
     return sign + "$" + abs.toPrecision(4).replace(/\.?0+$/, "");
   };
-  const fmtPrice = (n) => {
-    if (n == null || isNaN(n)) return "-";
-    if (n >= 1) return "$" + n.toFixed(4);
-    if (n >= .01) return "$" + n.toFixed(6);
-    return "$" + n.toFixed(8);
-  };
   const fmtCount = (n) => n == null || isNaN(n) ? "-" : Math.round(n).toLocaleString();
   const fmtTime = (iso) => {
     const d = new Date(iso);
@@ -107,7 +101,7 @@
     if (Number.isNaN(d.getTime())) return "-";
     return `${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} @ ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   };
-  const abbrevAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-6)}` : "-";
+  const truncCA = (ca) => !ca ? "" : ca.length > 14 ? ca.slice(0, 4) + "…" + ca.slice(-4) : ca;
 
   function mcapRatio(a, b) {
     if (a == null || b == null || a <= 0 || b <= 0) return null;
@@ -270,7 +264,7 @@
 
   function renderRows() {
     if (!filteredRows.length) {
-      $("rows").innerHTML = `<tr><td colspan="14"><div class="empty">No scan rows match this filter.</div></td></tr>`;
+      $("rows").innerHTML = `<tr><td colspan="13"><div class="empty">No scan rows match this filter.</div></td></tr>`;
       $("result-count").textContent = "0 rows";
       return;
     }
@@ -283,7 +277,7 @@
       const deltaText = row.upDown == null ? "-" : `${row.upDown >= 0 ? "+" : ""}${row.upDown.toFixed(1)}%`;
       const contract = row.contract || "";
       const caButton = contract
-        ? `<button class="ca-copy" type="button" data-ca="${escapeHTML(contract)}" title="Copy full coin address"><span class="ca">${escapeHTML(abbrevAddress(contract))}</span><span class="copy-label">copy</span></button>`
+        ? `<button class="ca-copy" type="button" data-ca="${escapeHTML(contract)}" title="Copy full coin address"><span class="ca-label">CA</span><span class="ca">${escapeHTML(truncCA(contract))}</span><span class="copy-label">copy</span></button>`
         : `<span class="ca">-</span>`;
       return `
         <tr>
@@ -293,7 +287,6 @@
           <td class="num">${fmtCompact(row.calledMcap)}</td>
           <td class="num">${fmtCompact(current)}</td>
           <td class="num">${fmtCompact(row.normalizedMcap)}</td>
-          <td class="num">${fmtPrice(live?.price ?? row.price)}</td>
           <td class="num">${fmtCompact(live?.liquidity ?? row.liquidity)}</td>
           <td class="num">${fmtCompact(live?.volume24h ?? row.volume24h)}</td>
           <td class="num">${fmtCount(row.holders)}</td>
@@ -367,7 +360,7 @@
       render();
     } catch (err) {
       $("status").innerHTML = `<span class="neg">// history feed failed: ${escapeHTML(err.message || err)}</span>`;
-      $("rows").innerHTML = `<tr><td colspan="14"><div class="empty">Unable to load scan history.</div></td></tr>`;
+      $("rows").innerHTML = `<tr><td colspan="13"><div class="empty">Unable to load scan history.</div></td></tr>`;
     }
   }
 

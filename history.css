@@ -81,6 +81,7 @@ h1{margin:4px 0 6px;font-size:clamp(28px,6vw,70px);line-height:1;letter-spacing:
 table{width:100%;border-collapse:collapse;font-size:12px;min-width:1100px}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px dashed rgba(0,255,65,.12);vertical-align:top}
 th{position:sticky;top:0;background:#091009;color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.16em;z-index:1}
+th:first-child,td:first-child{width:150px;min-width:150px;white-space:nowrap}
 tbody tr:hover{background:rgba(0,255,65,.055)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .sym{font-size:15px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.35)}
@@ -98,6 +99,7 @@ tbody tr:hover{background:rgba(0,255,65,.055)}
 }
 .ca-copy:hover,.ca-copy.copied{border-color:var(--green);background:rgba(0,255,65,.12);color:var(--green)}
 .ca-copy.copy-failed{border-color:rgba(255,85,119,.55);color:var(--red)}
+.ca-label{color:var(--green-dim);font-size:10px}
 .ca{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .copy-label{color:var(--green-dim);font-size:9px;text-transform:uppercase;letter-spacing:.08em}
 .empty{padding:18px;border:1px dashed var(--green-deep);color:var(--green-dim)}
