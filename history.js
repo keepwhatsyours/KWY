@@ -282,7 +282,7 @@
     if (sort === "oldest") filteredRows.sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
     else if (sort === "up") filteredRows.sort((a, b) => (b.upDown ?? -Infinity) - (a.upDown ?? -Infinity));
     else if (sort === "down") filteredRows.sort((a, b) => (a.upDown ?? Infinity) - (b.upDown ?? Infinity));
-    else if (sort === "liq") filteredRows.sort((a, b) => ((b.live?.liquidity ?? b.liquidity ?? 0) - (a.live?.liquidity ?? a.liquidity ?? 0)));
+    else if (sort === "liq") filteredRows.sort((a, b) => ((b.liquidity ?? 0) - (a.liquidity ?? 0)));
     else filteredRows.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
   }
 
@@ -320,7 +320,7 @@
         : `<span class="ca">-</span>`;
       const watched = isWatched(contract);
       const watchButton = contract
-        ? `<button class="watch-toggle ${watched ? "active" : ""}" type="button" data-watch="${escapeHTML(contract)}">${watched ? "Saved" : "Watch"}</button>`
+        ? `<button class="watch-toggle ${watched ? "active" : ""}" type="button" data-watch="${escapeHTML(contract)}" title="${watched ? "Remove from watchlist" : "Add to watchlist"}" aria-label="${watched ? "Remove from watchlist" : "Add to watchlist"}">${watched ? "-" : "+"}</button>`
         : "";
       return `
         <tr>
@@ -330,7 +330,7 @@
           <td class="num">${fmtCompact(row.calledMcap)}</td>
           <td class="num">${fmtCompact(current)}</td>
           <td class="num">${fmtCompact(row.normalizedMcap)}</td>
-          <td class="num">${fmtCompact(live?.liquidity ?? row.liquidity)}</td>
+          <td class="num">${fmtCompact(row.liquidity)}</td>
           <td class="num">${fmtCompact(live?.volume24h ?? row.volume24h)}</td>
           <td class="num">${fmtCount(row.holders)}</td>
           <td class="num">${fmtCount(row.kols)}</td>
@@ -393,7 +393,7 @@
     const watched = [...getWatchlist()];
     if (!watched.length) {
       meta.textContent = "// 0 saved";
-      wrap.innerHTML = `<div class="empty">// no saved tokens yet. Click WATCH in the Scan Ledger or paste a CA/ticker above.</div>`;
+      wrap.innerHTML = `<div class="empty">// no saved tokens yet. Click + in the Scan Ledger or paste a CA/ticker above.</div>`;
       return;
     }
     let liveCount = 0;
@@ -458,7 +458,7 @@
     const match = findWatchCandidate(raw);
     const contract = match?.contract || raw;
     if (!match && !isLikelyAddress(contract)) {
-      setWatchHint("// no ledger match found. paste a full Solana CA or use WATCH on a row.", "warn");
+      setWatchHint("// no ledger match found. paste a full Solana CA or use + on a row.", "warn");
       return;
     }
     toggleWatch(contract, true);
