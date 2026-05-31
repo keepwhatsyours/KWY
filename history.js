@@ -104,7 +104,7 @@
     if (Number.isNaN(d.getTime())) return "-";
     return `${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} @ ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   };
-  const truncCA = (ca) => !ca ? "" : ca.length > 14 ? ca.slice(0, 4) + "…" + ca.slice(-4) : ca;
+  const truncCA = (ca) => !ca ? "" : ca.length > 14 ? ca.slice(0, 4) + "..." + ca.slice(-4) : ca;
   const isLikelyAddress = (s) => /^[1-9A-HJ-NP-Za-km-z]{32,60}$/.test(String(s || "").trim());
 
   function getWatchlist() {
@@ -303,7 +303,7 @@
 
   function renderRows() {
     if (!filteredRows.length) {
-      $("rows").innerHTML = `<tr><td colspan="13"><div class="empty">No scan rows match this filter.</div></td></tr>`;
+      $("rows").innerHTML = `<tr><td colspan="12"><div class="empty">No scan rows match this filter.</div></td></tr>`;
       $("result-count").textContent = "0 rows";
       return;
     }
@@ -316,7 +316,7 @@
       const deltaText = row.upDown == null ? "-" : `${row.upDown >= 0 ? "+" : ""}${row.upDown.toFixed(1)}%`;
       const contract = row.contract || "";
       const caButton = contract
-        ? `<button class="ca-copy" type="button" data-ca="${escapeHTML(contract)}" title="Copy full coin address"><span class="ca-label">CA</span><span class="ca">${escapeHTML(truncCA(contract))}</span><span class="copy-label">copy</span></button>`
+        ? `<button class="ca-copy" type="button" data-ca="${escapeHTML(contract)}" title="Copy full coin address"><span class="ca">${escapeHTML(truncCA(contract))}</span><span class="copy-label">copy</span></button>`
         : `<span class="ca">-</span>`;
       const watched = isWatched(contract);
       const watchButton = contract
@@ -329,14 +329,13 @@
           <td class="num ${deltaCls}">${deltaText}</td>
           <td class="num">${fmtCompact(row.calledMcap)}</td>
           <td class="num">${fmtCompact(current)}</td>
-          <td class="num">${fmtCompact(row.normalizedMcap)}</td>
           <td class="num">${fmtCompact(row.liquidity)}</td>
           <td class="num">${fmtCompact(live?.volume24h ?? row.volume24h)}</td>
           <td class="num">${fmtCount(row.holders)}</td>
           <td class="num">${fmtCount(row.kols)}</td>
           <td class="num">${fmtCount(row.degens)}</td>
           <td class="num">${row.score == null ? "-" : Math.round(row.score)}</td>
-          <td><span class="pill ${live ? "live" : "warn"}">${live ? "live" : "snapshot"}</span>${watchButton}${caButton}</td>
+          <td>${watchButton}${caButton}</td>
         </tr>
       `;
     }).join("");
@@ -501,7 +500,7 @@
       render();
     } catch (err) {
       $("status").innerHTML = `<span class="neg">// history feed failed: ${escapeHTML(err.message || err)}</span>`;
-      $("rows").innerHTML = `<tr><td colspan="13"><div class="empty">Unable to load scan history.</div></td></tr>`;
+      $("rows").innerHTML = `<tr><td colspan="12"><div class="empty">Unable to load scan history.</div></td></tr>`;
       renderWatchlist();
     }
   }
