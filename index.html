@@ -1064,10 +1064,12 @@ function dexToLive(pair) {
 // This is the ONLY accurate ATH — it tracks Dexscreener live data over time.
 const ATH_KEY = "kwy-ath-v1";
 const ATH_RESET_KEY = "kwy-ath-reset-v1";
+const CALLED_KEY = "kwy-called-baselines-v1";
 function maybeResetATH() {
   const lastReset = localStorage.getItem(ATH_RESET_KEY);
   if (lastReset !== RESET_DATE) {
     localStorage.removeItem(ATH_KEY);
+    localStorage.removeItem(CALLED_KEY);
     localStorage.setItem(ATH_RESET_KEY, RESET_DATE);
   }
 }
@@ -1094,8 +1096,30 @@ function updateATH(contract, liveMcap) {
   }
 }
 
-// mutate md.posts coins in place: attach `.live` from GMGN; also store
-// md.live as a global Map<address, livePair> for any other consumers.
+function getStoredCalls() {
+  try {
+    const raw = localStorage.getItem(CALLED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function setStoredCalls(map) {
+  try { localStorage.setItem(CALLED_KEY, JSON.stringify(map)); } catch {}
+}
+function getCalledBaseline(contract) {
+  return contract ? (getStoredCalls()[contract] ?? null) : null;
+}
+function updateCalledBaseline(contract, flag) {
+  if (!contract || !flag?.mcap || flag.mcap <= 0 || !flag.ts) return;
+  const map = getStoredCalls();
+  const prev = map[contract];
+  if (!prev || new Date(flag.ts).getTime() < new Date(prev.ts).getTime()) {
+    map[contract] = { mcap: flag.mcap, price: flag.price ?? null, ts: flag.ts };
+    setStoredCalls(map);
+  }
+}
+
+// mutate md.posts coins in place: attach `.live` from Dexscreener, falling
+// back to GMGN when Dex has no pair; also store md.live for consumers.
 async function enrichWithLive(md) {
   const addresses = [];
   const seen = new Set();
@@ -1107,14 +1131,17 @@ async function enrichWithLive(md) {
       }
     }
   }
-  const gmgnPairs = await fetchGMGNData(addresses);
-  md.live = gmgnPairs;
+  const dexPairs = await fetchDexscreenerData(addresses);
+  const missing = addresses.filter(addr => !dexPairs.has(addr));
+  const gmgnPairs = missing.length ? await fetchGMGNData(missing) : new Map();
+  md.live = dexPairs;
 
   for (const post of md.posts) {
     for (const coin of post.coins) {
-      const data = gmgnPairs.get(coin.contract);
-      if (data) {
-        coin.live = gmgnToLive(data);
+      const dexPair = dexPairs.get(coin.contract);
+      const gmgnData = gmgnPairs.get(coin.contract);
+      if (dexPair || gmgnData) {
+        coin.live = dexPair ? dexToLive(dexPair) : gmgnToLive(gmgnData);
         // Update rolling ATH with live mcap
         updateATH(coin.contract, coin.live?.mcap);
       }
@@ -1305,6 +1332,12 @@ function buildMarketData(messages) {
       totalFlags++;
     }
   }
+  for (const [contract, flags] of flagsByContract) {
+    const earliestWithMcap = [...flags]
+      .sort((a, b) => (a.ts || '').localeCompare(b.ts || ''))
+      .find(f => f.mcap != null && f.mcap > 0);
+    updateCalledBaseline(contract, earliestWithMcap);
+  }
   const topFlagged = [...flagCounts.entries()].sort((a,b)=>b[1]-a[1]);
   const allScores = posts.flatMap(p=>p.coins.map(c=>c.score)).filter(s=>s!=null);
   const avgScore = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
@@ -1387,20 +1420,23 @@ function coinCard(c, tier, md) {
   const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
   const firstFlag  = sortedFlags[0];
   const latestFlag = sortedFlags[sortedFlags.length - 1];
+  const latestFlagWithMcap = [...sortedFlags].reverse().find(f => f.mcap != null && f.mcap > 0);
 
   // CALLED AT = first flag (original call) for repeated coins, only flag for new coins.
   // The latest Discord scan for repeated coins often has stale/bad mcap data;
   // the first flag is the true baseline that traders track from.
   // IMPORTANT: search for the first flag that actually has valid mcap data,
   // rather than just sortedFlags[0] which might be missing it.
+  const storedCall = c.contract ? getCalledBaseline(c.contract) : null;
   const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
   const firstFlagWithPrice = sortedFlags.find(f => f.price != null && f.price > 0);
-  const calledTs   = firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
-  const calledMcap = firstFlagWithMcap?.mcap ?? c.mcap ?? null;
-  const calledPrice = firstFlagWithPrice?.price ?? c.price ?? null;
+  const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
+  const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
+  const calledPrice = storedCall?.price ?? firstFlagWithPrice?.price ?? c.price ?? null;
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
-  const currentMcap = live?.mcap ?? c.mcap ?? null;
+  const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
+  const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.mcap : null);
   const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
                         ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
   const priceDelta  = (price != null && calledPrice != null && calledPrice > 0)
