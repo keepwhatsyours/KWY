@@ -258,12 +258,13 @@
   .tier-head .badge.mid{color:var(--amber);border-color:rgba(255,176,0,.45);background:rgba(255,176,0,.06)}
   .tier-head .badge.low{color:#ff5577;border-color:rgba(255,85,119,.45);background:rgba(255,85,119,.06)}
   .tier-head .when{color:var(--green-dim);font-size:10.5px;letter-spacing:.1em;margin-left:auto}
-  .tier-head .more-link{
+  .tier-more{display:flex;justify-content:flex-end;margin-top:8px}
+  .tier-more .more-link{
     color:var(--green);border:1px solid var(--green-deep);border-radius:2px;
     background:rgba(0,255,65,.045);padding:2px 8px;text-decoration:none;
     font-size:10px;letter-spacing:.14em;white-space:nowrap;
   }
-  .tier-head .more-link:hover{background:var(--green);border-color:var(--green);color:#000}
+  .tier-more .more-link:hover{background:var(--green);border-color:var(--green);color:#000}
 
   .coin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
   .coin{
@@ -1978,9 +1979,9 @@ function renderMarketScan(md) {
           <span class="badge ${t}">${tierLabel[t]}</span>
           <span>${tierBlurb[t]}</span>
           <span class="when">${(()=>{const d=new Date(latestPost.ts);const p=n=>String(n).padStart(2,'0');return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;})()}</span>
-          <a class="more-link" href="${tierHistoryUrl[t]}">MORE...</a>
         </div>
         <div class="coin-grid">${visibleCoins.map(c => coinCard(c, t, md)).join("")}</div>
+        <div class="tier-more"><a class="more-link" href="${tierHistoryUrl[t]}">MORE..</a></div>
       </div>
     `;
   }).join("");
