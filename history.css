@@ -91,7 +91,15 @@ tbody tr:hover{background:rgba(0,255,65,.055)}
 .pill{display:inline-block;border:1px solid var(--green-deep);border-radius:2px;background:rgba(0,255,65,.035);padding:1px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--green-dim)}
 .pill.live{color:var(--green)}
 .pill.warn{color:var(--amber);border-color:rgba(255,176,0,.4)}
-.ca{max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#9ad99a}
+.ca-copy{
+  display:flex;align-items:center;gap:6px;margin-top:5px;width:max-content;max-width:190px;
+  border:1px solid rgba(0,255,65,.28);border-radius:2px;background:rgba(0,255,65,.04);
+  color:#9ad99a;font-family:var(--mono);font-size:11px;line-height:1;padding:4px 6px;cursor:pointer;
+}
+.ca-copy:hover,.ca-copy.copied{border-color:var(--green);background:rgba(0,255,65,.12);color:var(--green)}
+.ca-copy.copy-failed{border-color:rgba(255,85,119,.55);color:var(--red)}
+.ca{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.copy-label{color:var(--green-dim);font-size:9px;text-transform:uppercase;letter-spacing:.08em}
 .empty{padding:18px;border:1px dashed var(--green-deep);color:var(--green-dim)}
 footer{margin-top:24px;text-align:center;color:var(--green-dim);font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-top:1px solid var(--green-deep);padding-top:14px}
 @media (max-width:760px){

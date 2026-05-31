@@ -104,15 +104,10 @@
   const fmtTime = (iso) => {
     const d = new Date(iso);
     const pad = n => String(n).padStart(2, "0");
-    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    if (Number.isNaN(d.getTime())) return "-";
+    return `${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} @ ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   };
-  const fmtAgo = (iso) => {
-    const sec = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (sec < 90) return Math.round(sec) + "s ago";
-    if (sec < 3600) return Math.round(sec / 60) + "m ago";
-    if (sec < 86400) return Math.round(sec / 3600) + "h ago";
-    return Math.round(sec / 86400) + "d ago";
-  };
+  const abbrevAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-6)}` : "-";
 
   function mcapRatio(a, b) {
     if (a == null || b == null || a <= 0 || b <= 0) return null;
@@ -286,9 +281,13 @@
       const chart = live?.url || row.links?.chart || (row.contract ? `https://dexscreener.com/solana/${row.contract}` : "#");
       const deltaCls = row.upDown == null ? "dim" : row.upDown >= 0 ? "pos" : "neg";
       const deltaText = row.upDown == null ? "-" : `${row.upDown >= 0 ? "+" : ""}${row.upDown.toFixed(1)}%`;
+      const contract = row.contract || "";
+      const caButton = contract
+        ? `<button class="ca-copy" type="button" data-ca="${escapeHTML(contract)}" title="Copy full coin address"><span class="ca">${escapeHTML(abbrevAddress(contract))}</span><span class="copy-label">copy</span></button>`
+        : `<span class="ca">-</span>`;
       return `
         <tr>
-          <td><span class="dim">${fmtTime(row.ts)}</span><br><span class="dim">${fmtAgo(row.ts)}</span></td>
+          <td><span class="dim">${fmtTime(row.ts)}</span></td>
           <td><a href="${escapeHTML(chart)}" target="_blank" rel="noopener"><span class="sym">$${escapeHTML(row.symbol)}</span></a><div class="name">${escapeHTML(row.name)}</div></td>
           <td class="num ${deltaCls}">${deltaText}</td>
           <td class="num">${fmtCompact(row.calledMcap)}</td>
@@ -301,10 +300,44 @@
           <td class="num">${fmtCount(row.kols)}</td>
           <td class="num">${fmtCount(row.degens)}</td>
           <td class="num">${row.score == null ? "-" : Math.round(row.score)}</td>
-          <td><span class="pill ${live ? "live" : "warn"}">${live ? "live" : "snapshot"}</span><div class="ca" title="${escapeHTML(row.contract || "")}">${escapeHTML(row.contract || "-")}</div></td>
+          <td><span class="pill ${live ? "live" : "warn"}">${live ? "live" : "snapshot"}</span>${caButton}</td>
         </tr>
       `;
     }).join("");
+  }
+
+  async function copyAddress(button) {
+    const ca = button.dataset.ca;
+    if (!ca) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(ca);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = ca;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      button.classList.add("copied");
+      const label = button.querySelector(".copy-label");
+      if (label) label.textContent = "copied";
+      setTimeout(() => {
+        button.classList.remove("copied");
+        if (label) label.textContent = "copy";
+      }, 1200);
+    } catch {
+      button.classList.add("copy-failed");
+      const label = button.querySelector(".copy-label");
+      if (label) label.textContent = "failed";
+      setTimeout(() => {
+        button.classList.remove("copy-failed");
+        if (label) label.textContent = "copy";
+      }, 1200);
+    }
   }
 
   function render() {
@@ -340,5 +373,9 @@
 
   $("search").addEventListener("input", render);
   $("sort").addEventListener("change", render);
+  $("rows").addEventListener("click", (event) => {
+    const button = event.target.closest(".ca-copy");
+    if (button) copyAddress(button);
+  });
   init();
 })();
