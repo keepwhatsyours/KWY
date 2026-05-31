@@ -1377,7 +1377,8 @@ function coinCard(c, tier, md) {
   // CALLED AT = first-seen Dexscreener mcap (stored in localStorage).
   // For coins that existed before the tracker, fall back to the FIRST Discord
   // flag — the original call — rather than the latest scan (which would == current).
-  const calledTs   = firstFlag?.ts   ?? c.ts   ?? null;
+  // The timestamp comes from the LATEST flag (current scan) so it matches LAST SYNC.
+  const calledTs   = latestFlag?.ts   ?? c.ts   ?? null;
   const calledMcap = getCalledAt(c.contract) ?? firstFlag?.mcap ?? c.mcap ?? null;
   const calledPrice = firstFlag?.price ?? c.price ?? null;
 
