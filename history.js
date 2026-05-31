@@ -4,10 +4,13 @@
   const BASELINE_URL = FEED_URL.replace(/\/feed$/, "/baselines");
   const DEX_CHAIN = "solana";
   const OUTLIER_RATIO = 25;
+  const WATCHLIST_KEY = "kwy-watchlist-v1";
 
   let rows = [];
+  let allRows = [];
   let filteredRows = [];
   let serverBaselines = {};
+  let liveByContractCache = new Map();
 
   const $ = (id) => document.getElementById(id);
   const escapeHTML = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({
@@ -102,6 +105,42 @@
     return `${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} @ ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
   };
   const truncCA = (ca) => !ca ? "" : ca.length > 14 ? ca.slice(0, 4) + "…" + ca.slice(-4) : ca;
+  const isLikelyAddress = (s) => /^[1-9A-HJ-NP-Za-km-z]{32,60}$/.test(String(s || "").trim());
+
+  function getWatchlist() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]");
+      return new Set(Array.isArray(raw) ? raw.filter(Boolean) : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function setWatchlist(set) {
+    try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...set])); } catch {}
+  }
+
+  function isWatched(contract) {
+    return !!contract && getWatchlist().has(contract);
+  }
+
+  function setWatchHint(text, cls = "") {
+    const hint = $("watch-hint");
+    if (!hint) return;
+    hint.className = `watch-hint${cls ? " " + cls : ""}`;
+    hint.textContent = text;
+  }
+
+  function findWatchCandidate(value) {
+    const q = String(value || "").trim();
+    if (!q) return null;
+    const clean = q.replace(/^\$/, "").toLowerCase();
+    const pool = [...allRows, ...rows].filter(r => r.contract);
+    return pool.find(r => String(r.contract).toLowerCase() === clean)
+      || pool.find(r => String(r.symbol || "").toLowerCase() === clean)
+      || pool.find(r => [r.symbol, r.name, r.contract].some(v => String(v || "").toLowerCase().includes(clean)))
+      || null;
+  }
 
   function mcapRatio(a, b) {
     if (a == null || b == null || a <= 0 || b <= 0) return null;
@@ -183,8 +222,8 @@
     };
   }
 
-  function buildRows(messages, liveByContract) {
-    const posts = messages.map(parseBubbaPost).filter(Boolean).filter(p => p.tier === cfg.tier);
+  function buildRows(messages, liveByContract, tier = cfg.tier) {
+    const posts = messages.map(parseBubbaPost).filter(Boolean).filter(p => !tier || p.tier === tier);
     const flat = [];
     for (const post of posts) {
       for (const coin of post.coins) {
@@ -279,6 +318,10 @@
       const caButton = contract
         ? `<button class="ca-copy" type="button" data-ca="${escapeHTML(contract)}" title="Copy full coin address"><span class="ca-label">CA</span><span class="ca">${escapeHTML(truncCA(contract))}</span><span class="copy-label">copy</span></button>`
         : `<span class="ca">-</span>`;
+      const watched = isWatched(contract);
+      const watchButton = contract
+        ? `<button class="watch-toggle ${watched ? "active" : ""}" type="button" data-watch="${escapeHTML(contract)}">${watched ? "Saved" : "Watch"}</button>`
+        : "";
       return `
         <tr>
           <td><span class="dim">${fmtTime(row.ts)}</span></td>
@@ -293,7 +336,7 @@
           <td class="num">${fmtCount(row.kols)}</td>
           <td class="num">${fmtCount(row.degens)}</td>
           <td class="num">${row.score == null ? "-" : Math.round(row.score)}</td>
-          <td><span class="pill ${live ? "live" : "warn"}">${live ? "live" : "snapshot"}</span>${caButton}</td>
+          <td><span class="pill ${live ? "live" : "warn"}">${live ? "live" : "snapshot"}</span>${watchButton}${caButton}</td>
         </tr>
       `;
     }).join("");
@@ -333,10 +376,101 @@
     }
   }
 
+  function bestWatchRow(contract) {
+    const matches = allRows.filter(r => r.contract === contract);
+    if (!matches.length) return null;
+    return [...matches].sort((a, b) => {
+      const liveScore = (b.live ? 1 : 0) - (a.live ? 1 : 0);
+      if (liveScore) return liveScore;
+      return (b.ts || "").localeCompare(a.ts || "");
+    })[0];
+  }
+
+  function renderWatchlist() {
+    const wrap = $("watchlist");
+    const meta = $("watch-meta");
+    if (!wrap || !meta) return;
+    const watched = [...getWatchlist()];
+    if (!watched.length) {
+      meta.textContent = "// 0 saved";
+      wrap.innerHTML = `<div class="empty">// no saved tokens yet. Click WATCH in the Scan Ledger or paste a CA/ticker above.</div>`;
+      return;
+    }
+    let liveCount = 0;
+    const cards = watched.map(contract => {
+      const row = bestWatchRow(contract);
+      const live = liveByContractCache.get(contract) || row?.live || null;
+      if (live) liveCount++;
+      const symbol = row?.symbol ? "$" + row.symbol : truncCA(contract);
+      const name = row?.name || (row ? "" : "Manual token");
+      const delta = row?.upDown;
+      const deltaCls = delta == null ? "dim" : delta >= 0 ? "pos" : "neg";
+      const deltaText = delta == null ? "-" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`;
+      const current = live?.mcap ?? row?.currentMcap ?? row?.normalizedMcap ?? null;
+      const called = row?.calledMcap ?? null;
+      const liq = live?.liquidity ?? row?.liquidity ?? null;
+      const chart = live?.url || row?.links?.chart || `https://dexscreener.com/solana/${contract}`;
+      return `
+        <div class="watch-card" data-watch-card="${escapeHTML(contract)}">
+          <div class="top">
+            <div>
+              <div class="sym">${escapeHTML(symbol)}</div>
+              <div class="name">${escapeHTML(name)}</div>
+              <div class="tier">${row?.tier ? escapeHTML(row.tier + " cap") : "manual"} · ${live ? "live" : "snapshot"}</div>
+            </div>
+            <div class="delta ${deltaCls}">${deltaText}</div>
+          </div>
+          <div class="watch-metrics">
+            <span>called<b>${fmtCompact(called)}</b></span>
+            <span>current<b>${fmtCompact(current)}</b></span>
+            <span>liq<b>${fmtCompact(liq)}</b></span>
+          </div>
+          <div class="watch-actions">
+            <a class="watch-action" href="${escapeHTML(chart)}" target="_blank" rel="noopener">Chart</a>
+            <button class="watch-action ca-copy" type="button" data-ca="${escapeHTML(contract)}"><span class="ca">${escapeHTML(truncCA(contract))}</span><span class="copy-label">copy</span></button>
+            <button class="watch-action remove" type="button" data-watch-remove="${escapeHTML(contract)}">Remove</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    meta.textContent = `// ${watched.length} saved · ${liveCount} live`;
+    wrap.innerHTML = cards;
+  }
+
+  function toggleWatch(contract, force) {
+    if (!contract) return;
+    const watched = getWatchlist();
+    const shouldAdd = force ?? !watched.has(contract);
+    if (shouldAdd) watched.add(contract);
+    else watched.delete(contract);
+    setWatchlist(watched);
+    renderRows();
+    renderWatchlist();
+  }
+
+  function addWatchFromInput() {
+    const input = $("watch-input");
+    const raw = input?.value.trim() || "";
+    if (!raw) {
+      setWatchHint("// enter a CA or ticker first", "warn");
+      return;
+    }
+    const match = findWatchCandidate(raw);
+    const contract = match?.contract || raw;
+    if (!match && !isLikelyAddress(contract)) {
+      setWatchHint("// no ledger match found. paste a full Solana CA or use WATCH on a row.", "warn");
+      return;
+    }
+    toggleWatch(contract, true);
+    if (input) input.value = "";
+    setWatchHint(`// saved ${match?.symbol ? "$" + match.symbol : truncCA(contract)}`, "good");
+  }
+
   function render() {
     applyFilters();
     renderStats();
     renderRows();
+    renderWatchlist();
   }
 
   async function init() {
@@ -350,25 +484,64 @@
     try {
       await fetchBaselines();
       const messages = await fetchFeed();
-      const posts = messages.map(parseBubbaPost).filter(Boolean).filter(p => p.tier === cfg.tier);
-      const addresses = [...new Set(posts.flatMap(p => p.coins.map(c => c.contract).filter(Boolean)))];
+      const allPosts = messages.map(parseBubbaPost).filter(Boolean);
+      const posts = allPosts.filter(p => p.tier === cfg.tier);
+      const watched = [...getWatchlist()].filter(Boolean);
+      const addresses = [...new Set([
+        ...allPosts.flatMap(p => p.coins.map(c => c.contract).filter(Boolean)),
+        ...watched,
+      ])];
       $("status").innerHTML = `// feed rows: <b>${posts.length}</b> scans · contracts: <b>${addresses.length}</b> · loading Dexscreener...`;
       const dexPairs = await fetchDexscreener(addresses);
       const liveByContract = new Map([...dexPairs.entries()].map(([addr, pair]) => [addr, dexToLive(pair)]));
-      rows = buildRows(messages, liveByContract);
+      liveByContractCache = liveByContract;
+      allRows = buildRows(messages, liveByContract, null);
+      rows = buildRows(messages, liveByContract, cfg.tier);
       $("status").innerHTML = `// source: <b>Dexscreener</b> + scan feed · updated: <b>${new Date().toISOString().slice(11,19)} UTC</b>`;
       render();
     } catch (err) {
       $("status").innerHTML = `<span class="neg">// history feed failed: ${escapeHTML(err.message || err)}</span>`;
       $("rows").innerHTML = `<tr><td colspan="13"><div class="empty">Unable to load scan history.</div></td></tr>`;
+      renderWatchlist();
     }
   }
 
   $("search").addEventListener("input", render);
   $("sort").addEventListener("change", render);
   $("rows").addEventListener("click", (event) => {
+    const watch = event.target.closest("[data-watch]");
+    if (watch) {
+      toggleWatch(watch.dataset.watch);
+      return;
+    }
     const button = event.target.closest(".ca-copy");
     if (button) copyAddress(button);
+  });
+  $("watchlist").addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-watch-remove]");
+    if (remove) {
+      toggleWatch(remove.dataset.watchRemove, false);
+      setWatchHint("// removed from watchlist", "good");
+      return;
+    }
+    const button = event.target.closest(".ca-copy");
+    if (button) copyAddress(button);
+  });
+  $("watch-add").addEventListener("click", addWatchFromInput);
+  $("watch-input").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addWatchFromInput();
+    }
+  });
+  $("watch-clear").addEventListener("click", () => {
+    if (!getWatchlist().size) return;
+    if (window.confirm("Clear watchlist?")) {
+      setWatchlist(new Set());
+      renderRows();
+      renderWatchlist();
+      setWatchHint("// watchlist cleared", "good");
+    }
   });
   init();
 })();

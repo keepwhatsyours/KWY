@@ -29,6 +29,17 @@
     <a class="tab" data-tier-link="low" href="lowcap.html">Low Cap</a>
   </nav>
 
+  <section class="panel watch-panel">
+    <h2>Watchlist <span class="meta" id="watch-meta">// loading saved tokens</span></h2>
+    <div class="watch-tools">
+      <input id="watch-input" type="search" placeholder="paste CA or ticker from ledger" autocomplete="off" spellcheck="false" />
+      <button id="watch-add" type="button">Add</button>
+      <button id="watch-clear" type="button">Clear</button>
+    </div>
+    <div id="watch-hint" class="watch-hint">// add from Scan Ledger or paste a Solana CA</div>
+    <div id="watchlist" class="watch-grid"></div>
+  </section>
+
   <section class="panel">
     <h2>System Readout <span class="meta" id="tier-range">$150K - $1M MC</span></h2>
     <div id="status" class="data-strip">// awaiting feed...</div>
