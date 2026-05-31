@@ -58,11 +58,14 @@ function cleanFieldName(s) {
 function parseBaselineMcap(v) {
   if (!v) return null;
   const s = String(v).trim().replace(/[`$,\s]/g, '');
-  const n = parseFloat(s);
+  const match = s.match(/^(-?[\d.]+)([KMB])?/i);
+  if (!match) return null;
+  const n = parseFloat(match[1]);
   if (Number.isNaN(n)) return null;
-  if (/\bK\b/i.test(s)) return n * 1e3;
-  if (/\bM\b/i.test(s)) return n * 1e6;
-  if (/\bB\b/i.test(s)) return n * 1e9;
+  const suffix = (match[2] || '').toUpperCase();
+  if (suffix === 'K') return n * 1e3;
+  if (suffix === 'M') return n * 1e6;
+  if (suffix === 'B') return n * 1e9;
   return n;
 }
 

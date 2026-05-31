@@ -26,6 +26,20 @@ function parseChange(v) {
   return out;
 }
 
+function parseBaselineMcap(v) {
+  if (!v) return null;
+  const s = String(v).trim().replace(/[`$,\s]/g, '');
+  const match = s.match(/^(-?[\d.]+)([KMB])?/i);
+  if (!match) return null;
+  const n = parseFloat(match[1]);
+  if (Number.isNaN(n)) return null;
+  const suffix = (match[2] || '').toUpperCase();
+  if (suffix === 'K') return n * 1e3;
+  if (suffix === 'M') return n * 1e6;
+  if (suffix === 'B') return n * 1e9;
+  return n;
+}
+
 function parseBubbaPost(msg) {
   if (msg.embeds && msg.embeds.length >= 2) {
     const header = msg.embeds[0];
@@ -83,6 +97,7 @@ const sample = {
 
 const parsed = parseBubbaPost(sample);
 const coin = parsed?.coins?.[0];
+const near = (a, b) => Math.abs(a - b) < 0.001;
 const checks = [
   ['tier', parsed?.tier === 'big'],
   ['symbol', coin?.symbol === 'WORLDCUP'],
@@ -92,6 +107,8 @@ const checks = [
   ['score ratio', coin?.score === 49],
   ['change 1h', coin?.change?.['1h'] === -1.8],
   ['health preserved', /Bundler/.test(coin?.health || '')],
+  ['baseline mcap M suffix', near(parseBaselineMcap('$4.14M'), 4140000)],
+  ['baseline mcap K suffix', near(parseBaselineMcap('$277.7K'), 277700)],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);

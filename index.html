@@ -1510,8 +1510,13 @@ function coinCard(c, tier, md) {
   // the first flag is the true baseline that traders track from.
   // IMPORTANT: search for the first flag that actually has valid mcap data,
   // rather than just sortedFlags[0] which might be missing it.
-  const storedCall = c.contract ? getCalledBaseline(c.contract) : null;
+  const rawStoredCall = c.contract ? getCalledBaseline(c.contract) : null;
   const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
+  const baselineCheckMcap = firstFlagWithMcap?.mcap ?? c.mcap ?? live?.mcap ?? null;
+  const storedCallLooksBad = rawStoredCall?.mcap && baselineCheckMcap
+    && rawStoredCall.mcap < 1000
+    && baselineCheckMcap >= 25000;
+  const storedCall = storedCallLooksBad ? null : rawStoredCall;
   const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
   const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
   const calledSource = storedCall?.source === "bot" ? "server baseline" : storedCall ? "browser baseline" : "current feed";
@@ -1539,6 +1544,7 @@ function coinCard(c, tier, md) {
   if (!live) anomalies.push({ label: "snapshot only", bad: true, title: "No live quote returned yet" });
   if (live?.source !== "dexscreener") anomalies.push({ label: "no dex", bad: true, title: "Dexscreener pair unavailable; fallback data used" });
   if (live?.source === "dexscreener" && !live.pairCreatedAt) anomalies.push({ label: "age missing", bad: false, title: "Dexscreener did not return pairCreatedAt" });
+  if (storedCallLooksBad) anomalies.push({ label: "bad baseline ignored", bad: true, title: `Rejected baseline ${fmtCompact(rawStoredCall.mcap)} for ${fmtCompact(baselineCheckMcap)} scan mcap` });
   if (dislocation >= 10) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
   if (live?.liquidity != null && live.liquidity < 10000) anomalies.push({ label: "low liq", bad: false, title: `Live liquidity ${fmtCompact(live.liquidity)}` });
   if (symbolContracts.size > 1) anomalies.push({ label: "reused symbol", bad: false, title: `${symbolContracts.size} contracts share $${c.symbol}` });
