@@ -613,6 +613,20 @@
   .coin.expanded .coin-detail{display:grid}
   .coin-detail span{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em}
   .coin-detail b{display:block;color:#cdeacd;font-weight:600;font-variant-numeric:tabular-nums}
+  .history-links{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;
+  }
+  .history-link{
+    border:1px solid var(--green-deep);border-radius:3px;background:rgba(0,255,65,.035);
+    padding:12px;text-decoration:none;display:block;
+    transition:background .15s,border-color .15s,box-shadow .15s,transform .15s;
+  }
+  .history-link:hover{
+    background:rgba(0,255,65,.1);border-color:var(--green);color:var(--green);
+    box-shadow:0 0 14px rgba(0,255,65,.16);transform:translateY(-1px);
+  }
+  .history-link b{display:block;color:var(--green);font-size:16px;letter-spacing:.16em;text-transform:uppercase}
+  .history-link span{display:block;margin-top:4px;color:var(--green-dim);font-size:10px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5}
   footer .disclaimer{color:#666;text-transform:none;letter-spacing:0;margin-top:6px;font-size:11px;line-height:1.5;max-width:760px;margin-left:auto;margin-right:auto}
 
   /* small */
@@ -762,6 +776,24 @@
         </thead>
         <tbody></tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>HISTORY <span class="meta">// scan archive by tier</span></h2>
+    <div class="history-links">
+      <a class="history-link" href="bigcap.html">
+        <b>Big Cap</b>
+        <span>$1M - $10M MC scans with first-called UP/DOWN</span>
+      </a>
+      <a class="history-link" href="midcap.html">
+        <b>Mid Cap</b>
+        <span>$150K - $1M MC scans with live price and liquidity</span>
+      </a>
+      <a class="history-link" href="lowcap.html">
+        <b>Low Cap</b>
+        <span>$25K - $150K MC scans with score, holders, and flow</span>
+      </a>
     </div>
   </div>
 
