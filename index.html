@@ -1383,9 +1383,13 @@ function coinCard(c, tier, md) {
   // CALLED AT = first flag (original call) for repeated coins, only flag for new coins.
   // The latest Discord scan for repeated coins often has stale/bad mcap data;
   // the first flag is the true baseline that traders track from.
-  const calledTs   = firstFlag?.ts   ?? c.ts   ?? null;
-  const calledMcap = firstFlag?.mcap ?? c.mcap ?? null;
-  const calledPrice = firstFlag?.price ?? c.price ?? null;
+  // IMPORTANT: search for the first flag that actually has valid mcap data,
+  // rather than just sortedFlags[0] which might be missing it.
+  const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
+  const firstFlagWithPrice = sortedFlags.find(f => f.price != null && f.price > 0);
+  const calledTs   = firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
+  const calledMcap = firstFlagWithMcap?.mcap ?? c.mcap ?? null;
+  const calledPrice = firstFlagWithPrice?.price ?? c.price ?? null;
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const currentMcap = live?.mcap ?? c.mcap ?? null;
