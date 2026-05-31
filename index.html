@@ -1618,6 +1618,7 @@ function resolveCalledBaseline(contract, sortedFlags, live, fallbackCoin = null)
   const matchingStoredFlag = stored?.ts
     ? sortedFlags.find(f => f.ts === stored.ts)
     : null;
+  const firstWithMcap = firstNormalizedFlagWithMcap(sortedFlags, live);
 
   if (stored?.mcap) {
     const normalized = normalizeSnapshotMcap({
@@ -1626,6 +1627,23 @@ function resolveCalledBaseline(contract, sortedFlags, live, fallbackCoin = null)
       price: matchingStoredFlag?.price,
     }, live);
     if (normalized.mcap != null && normalized.mcap > 0) {
+      const baselineDrift = firstWithMcap?.normalizedMcap
+        ? mcapRatio(normalized.mcap, firstWithMcap.normalizedMcap)
+        : null;
+      const storedLooksStale = !normalized.corrected
+        && !matchingStoredFlag
+        && baselineDrift != null
+        && baselineDrift >= MCAP_PRICE_CORRECTION_RATIO;
+      if (storedLooksStale) {
+        return {
+          mcap: firstWithMcap.normalizedMcap,
+          ts: firstWithMcap.ts ?? fallbackCoin?.ts ?? null,
+          source: firstWithMcap.mcapCorrection?.corrected ? "feed baseline corrected from price" : "current feed",
+          rawMcap: firstWithMcap.mcapCorrection?.rawMcap,
+          corrected: !!firstWithMcap.mcapCorrection?.corrected,
+          correction: firstWithMcap.mcapCorrection?.correction ?? null,
+        };
+      }
       return {
         mcap: normalized.mcap,
         ts: stored.ts ?? matchingStoredFlag?.ts ?? firstFlag?.ts ?? fallbackCoin?.ts ?? null,
@@ -1637,7 +1655,6 @@ function resolveCalledBaseline(contract, sortedFlags, live, fallbackCoin = null)
     }
   }
 
-  const firstWithMcap = firstNormalizedFlagWithMcap(sortedFlags, live);
   if (firstWithMcap) {
     return {
       mcap: firstWithMcap.normalizedMcap,
