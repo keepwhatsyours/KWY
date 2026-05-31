@@ -49,6 +49,45 @@ const client = new Client({
 
 /** newest-first ring buffer of channel messages */
 let feed = [];
+const calledBaselines = new Map();
+
+function cleanFieldName(s) {
+  return String(s || '').replace(/^[\s\W_]+/u, '').trim();
+}
+
+function parseBaselineMcap(v) {
+  if (!v) return null;
+  const s = String(v).trim().replace(/[`$,\s]/g, '');
+  const n = parseFloat(s);
+  if (Number.isNaN(n)) return null;
+  if (/\bK\b/i.test(s)) return n * 1e3;
+  if (/\bM\b/i.test(s)) return n * 1e6;
+  if (/\bB\b/i.test(s)) return n * 1e9;
+  return n;
+}
+
+function updateCalledBaselines(messages = feed) {
+  for (const msg of messages) {
+    for (const embed of msg.embeds || []) {
+      const fields = {};
+      for (const f of embed.fields || []) fields[cleanFieldName(f.name)] = f.value;
+      const contract = fields.Contract;
+      const mcap = parseBaselineMcap(fields['Market Cap']);
+      if (!contract || !mcap || !msg.timestamp) continue;
+
+      const prev = calledBaselines.get(contract);
+      if (!prev || new Date(msg.timestamp).getTime() < new Date(prev.ts).getTime()) {
+        calledBaselines.set(contract, {
+          contract,
+          symbol: (embed.title || '').split(/\s+[—\-–]\s+/)[0]?.trim() || '',
+          mcap,
+          ts: msg.timestamp,
+          source: 'bot',
+        });
+      }
+    }
+  }
+}
 
 function shape(msg) {
   return {
@@ -95,6 +134,7 @@ client.once('ready', async () => {
     const messages = await channel.messages.fetch({ limit: MAX });
     // .fetch returns newest-first already in a Collection
     feed = [...messages.values()].map(shape);
+    updateCalledBaselines(feed);
     console.log(`[ok]  loaded ${feed.length} historical messages`);
   } catch (err) {
     console.error('[err] failed to load history:', err.message);
@@ -103,8 +143,10 @@ client.once('ready', async () => {
 
 client.on('messageCreate', (msg) => {
   if (msg.channelId !== CHANNEL_ID) return;
-  feed.unshift(shape(msg));
+  const shaped = shape(msg);
+  feed.unshift(shaped);
   if (feed.length > MAX) feed.length = MAX;
+  updateCalledBaselines([shaped]);
 });
 
 client.on('messageUpdate', async (_old, msg) => {
@@ -112,7 +154,11 @@ client.on('messageUpdate', async (_old, msg) => {
   try {
     const fresh = msg.partial ? await msg.fetch() : msg;
     const idx = feed.findIndex((m) => m.id === fresh.id);
-    if (idx >= 0) feed[idx] = shape(fresh);
+    if (idx >= 0) {
+      feed[idx] = shape(fresh);
+      calledBaselines.clear();
+      updateCalledBaselines(feed);
+    }
   } catch (err) {
     console.warn('[warn] update failed:', err.message);
   }
@@ -156,6 +202,15 @@ app.get('/feed', (_req, res) => {
     updated: new Date().toISOString(),
     count: feed.length,
     messages: feed,
+  });
+});
+
+app.get('/baselines', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=30');
+  res.json({
+    updated: new Date().toISOString(),
+    count: calledBaselines.size,
+    baselines: Object.fromEntries(calledBaselines),
   });
 });
 

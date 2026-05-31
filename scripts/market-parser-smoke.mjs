@@ -1,0 +1,104 @@
+#!/usr/bin/env node
+// Smoke-test the market scan parser against representative Bubba Bot embeds.
+
+const cleanFieldName = s => String(s || '').replace(/^[\s\W_]+/u, '').trim();
+
+function parseNumber(v) {
+  if (v == null) return null;
+  const s = String(v).replace(/[`*]/g, '').trim();
+  const ratio = s.match(/^([\d.,]+)\s*\/\s*\d+$/);
+  if (ratio) return parseFloat(ratio[1].replace(/,/g, ''));
+  const m = s.match(/-?[\d,.]+/);
+  if (!m) return null;
+  let n = parseFloat(m[0].replace(/,/g, ''));
+  if (/\bK\b|K\s*$/i.test(s)) n *= 1e3;
+  else if (/\bM\b|M\s*$/i.test(s)) n *= 1e6;
+  else if (/\bB\b|B\s*$/i.test(s)) n *= 1e9;
+  return n;
+}
+
+function parseChange(v) {
+  if (!v) return {};
+  const out = {};
+  for (const m of String(v).matchAll(/(1m|5m|1h):\s*`?([+-]?[\d.]+)%/g)) {
+    out[m[1]] = parseFloat(m[2]);
+  }
+  return out;
+}
+
+function parseBubbaPost(msg) {
+  if (msg.embeds && msg.embeds.length >= 2) {
+    const header = msg.embeds[0];
+    const tierMatch = (header.title || '').match(/(Big|Mid|Low)\s+Cap/i);
+    if (tierMatch) {
+      const tier = tierMatch[1].toLowerCase();
+      const coins = msg.embeds.slice(1).map(e => {
+        const t = (e.title || '').trim();
+        const titleMatch = t.match(/^(.+?)\s+[—\-–]\s+(.+)$/);
+        const fields = {};
+        for (const f of (e.fields || [])) fields[cleanFieldName(f.name)] = (f.value || '').replace(/`/g, '');
+        return {
+          symbol: titleMatch ? titleMatch[1].trim() : t,
+          name: titleMatch ? titleMatch[2].trim() : '',
+          contract: fields.Contract || null,
+          price: parseNumber(fields.Price),
+          mcap: parseNumber(fields['Market Cap']),
+          liquidity: parseNumber(fields.Liquidity),
+          volume24h: parseNumber(fields['Volume (24h)']),
+          holders: parseNumber(fields.Holders),
+          score: parseNumber(fields.Score),
+          change: parseChange(fields['Price Change']),
+          health: fields['Wallet Health'] || null,
+          risk: fields['Dev / Risk'] || fields['Dev/Risk'] || null,
+        };
+      });
+      return { id: msg.id, ts: msg.timestamp, tier, coins };
+    }
+  }
+  return null;
+}
+
+const sample = {
+  id: 'sample-1',
+  timestamp: '2026-05-31T02:30:31.801Z',
+  embeds: [
+    { title: '🚨 Big Cap 02:30 Scan 05/31/2026', fields: [] },
+    {
+      title: 'WORLDCUP  —  World Cup Coin',
+      fields: [
+        { name: '📋 Contract', value: '33eum82LaAhtv5YkUq1BdwEviSErH5CnFxqVNLT5pump' },
+        { name: '💰 Price', value: '$0.0048874' },
+        { name: '📊 Market Cap', value: '$5.08M' },
+        { name: '💧 Liquidity', value: '$539.2K' },
+        { name: '📈 Price Change', value: '1m: `+0.0%`  |  5m: `-0.4%`  |  1h: `-1.8%`' },
+        { name: '⭐ Score', value: '49/100' },
+        { name: '🔥 Volume (24h)', value: '$925.5K' },
+        { name: '👥 Holders', value: '18,861' },
+        { name: '🔐 Wallet Health', value: 'Top 10: `19.0%`  |  Bundler: `22.6%`  |  Fresh: `0.0%`' },
+        { name: '🛡️ Dev / Risk', value: '✅ Dev Exited | CTO Active | Rug: 0.056 🔴' },
+      ],
+    },
+  ],
+};
+
+const parsed = parseBubbaPost(sample);
+const coin = parsed?.coins?.[0];
+const checks = [
+  ['tier', parsed?.tier === 'big'],
+  ['symbol', coin?.symbol === 'WORLDCUP'],
+  ['contract', coin?.contract === '33eum82LaAhtv5YkUq1BdwEviSErH5CnFxqVNLT5pump'],
+  ['mcap', coin?.mcap === 5080000],
+  ['liquidity', coin?.liquidity === 539200],
+  ['score ratio', coin?.score === 49],
+  ['change 1h', coin?.change?.['1h'] === -1.8],
+  ['health preserved', /Bundler/.test(coin?.health || '')],
+];
+
+const failed = checks.filter(([, ok]) => !ok);
+if (failed.length) {
+  console.error('market parser smoke test failed:');
+  for (const [name] of failed) console.error(' - ' + name);
+  process.exit(1);
+}
+
+console.log('market parser smoke test passed');

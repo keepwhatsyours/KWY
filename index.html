@@ -307,6 +307,18 @@
   }
   .coin .sym{font-size:16px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.4);letter-spacing:.04em}
   .coin .name{color:var(--green-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
+  .coin .source-line{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin:2px 0 6px;font-size:9.5px;color:var(--green-dim);
+    text-transform:uppercase;letter-spacing:.08em;
+  }
+  .coin .source-line .src{color:#9ad99a}
+  .coin .warns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+  .coin .warn{
+    color:var(--amber);border:1px solid rgba(255,176,0,.35);
+    background:rgba(255,176,0,.06);border-radius:2px;padding:0 4px;
+  }
+  .coin .warn.bad{color:#ff5577;border-color:rgba(255,85,119,.4);background:rgba(255,85,119,.07)}
   /* generic score badge — works in coin cards AND in flag history table */
   .score{
     display:inline-block;
@@ -317,6 +329,11 @@
   .score.s-md{background:var(--amber)}
   .score.s-lo{background:#ff5577}
   .coin .kvs{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:6px;text-align:left}
+  .coin .kvs.primary{
+    border:1px solid rgba(0,255,65,.08);background:rgba(0,255,65,.025);
+    padding:7px;border-radius:3px;
+  }
+  .coin .kvs.secondary{opacity:.92}
   .coin .kv{display:flex;justify-content:space-between;gap:6px;font-size:11.5px}
   .coin .kv .k{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em;font-size:10px}
   .coin .kv .v{color:#cdeacd;font-variant-numeric:tabular-nums}
@@ -343,6 +360,14 @@
     border-top:1px dashed rgba(0,255,65,.1);padding-top:5px;
     text-align:center;
   }
+  .coin .risk-line{
+    margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,255,65,.12);
+    display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+    font-size:10px;color:var(--green-dim);text-transform:uppercase;letter-spacing:.05em;
+  }
+  .coin .risk-line span{border:1px solid rgba(0,255,65,.1);border-radius:2px;padding:1px 5px;background:rgba(0,255,65,.025)}
+  .coin .risk-line .pos{color:var(--green)}
+  .coin .risk-line .neg{color:#ff5577;border-color:rgba(255,85,119,.25);background:rgba(255,85,119,.05)}
   .coin .sec-row{
     margin-top:4px;font-size:10px;color:var(--green-dim);
     text-align:center;letter-spacing:.02em;
@@ -534,6 +559,15 @@
   }
   .freshness .dot.stale{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:none}
   .freshness .dot.offline{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
+  .data-strip{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin:-2px 0 10px;padding:6px 8px;border:1px dashed rgba(0,255,65,.13);
+    background:rgba(0,255,65,.018);font-size:10px;color:var(--green-dim);
+    text-transform:uppercase;letter-spacing:.08em;
+  }
+  .data-strip b{color:var(--green);font-weight:600}
+  .data-strip .warn{color:var(--amber)}
+  .data-strip .bad{color:#ff5577}
   footer .disclaimer{color:#666;text-transform:none;letter-spacing:0;margin-top:6px;font-size:11px;line-height:1.5;max-width:760px;margin-left:auto;margin-right:auto}
 
   /* small */
@@ -550,6 +584,17 @@
     .hero-mobile .dot{color:var(--amber)}
     .wrap{padding:14px 14px 60px}
     .stat .v{font-size:18px}
+    .panel{padding:12px 10px}
+    .panel h2{align-items:flex-start;gap:7px}
+    .panel h2 .meta{font-size:9.5px;letter-spacing:.06em}
+    .tier-head{display:grid;grid-template-columns:auto 1fr;gap:6px 8px}
+    .tier-head .when{grid-column:1 / -1;margin-left:0}
+    .coin-grid{grid-template-columns:1fr;gap:10px}
+    .coin{padding:11px 10px}
+    .coin .mcap-banner{font-size:20px;min-height:40px}
+    .coin .kvs{grid-template-columns:1fr;gap:4px}
+    .coin .kvs.primary{grid-template-columns:1fr 1fr}
+    .data-strip{display:block;line-height:1.55}
   }
 </style>
 </head>
@@ -589,12 +634,14 @@
   <!-- MARKET SCAN — latest Big/Mid/Low Cap signals from Discord -->
   <div class="panel">
     <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
+    <div id="scan-data-strip" class="data-strip">// source: awaiting scan feed</div>
     <div id="market-scan"></div>
   </div>
 
   <!-- DAILY WINNERS & LOSERS — first flag today vs live MCAP -->
   <div class="panel">
     <h2>DAILY WINNERS &amp; LOSERS <span class="meta" id="wl-meta">// awaiting today's flags…</span></h2>
+    <div id="wl-data-strip" class="data-strip">// source: awaiting performance data</div>
     <div id="wl-summary" class="wl-summary"></div>
     <div class="chart-wrap" style="height:380px"><canvas id="wl-chart"></canvas></div>
   </div>
@@ -602,12 +649,14 @@
   <!-- INTEL FEED (DISCORD) -->
   <div class="panel">
     <h2>INTEL FEED <span class="meta" id="feed-meta">// awaiting uplink…</span></h2>
+    <div id="intel-data-strip" class="data-strip">// source: awaiting intel feed</div>
     <div id="feed" class="feed"></div>
   </div>
 
   <!-- DAILY TOP 10 — from BurpBoard Telegram channel -->
   <div class="panel">
     <h2>DAILY TOP 10 <span class="meta" id="bb-meta">// awaiting burpboard…</span></h2>
+    <div id="bb-data-strip" class="data-strip">// source: awaiting burpboard scrape</div>
     <div id="bb-summary" class="wl-summary"></div>
     <div id="burpboard"></div>
     <div style="text-align:right;font-size:10px;color:var(--green-dim);margin-top:6px;letter-spacing:.1em;text-transform:uppercase">
@@ -618,6 +667,7 @@
   <!-- BIGGEST WINS — highest gain from first flag (called at) to current live mcap -->
   <div class="panel">
     <h2>BIGGEST WINS <span class="meta" id="tr-meta"></span></h2>
+    <div id="tr-data-strip" class="data-strip">// source: awaiting tracked wins</div>
     <div style="overflow-x:auto">
       <table id="track">
         <thead>
@@ -687,6 +737,7 @@
 // Leave blank to show the offline placeholder. See bot/README.md for setup.
 const FEED_URL = "https://kwy.onrender.com/feed";
 const FEED_POLL_MS = 30000;
+const BASELINE_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/baselines") : "";
 const RESET_DATE = "2026-05-18"; // posts before this date are ignored for scans / tracking
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
@@ -1064,6 +1115,7 @@ function dexToLive(pair) {
 const ATH_KEY = "kwy-ath-v1";
 const ATH_RESET_KEY = "kwy-ath-reset-v1";
 const CALLED_KEY = "kwy-called-baselines-v1";
+let serverCalledBaselines = {};
 function maybeResetATH() {
   const lastReset = localStorage.getItem(ATH_RESET_KEY);
   if (lastReset !== RESET_DATE) {
@@ -1105,7 +1157,8 @@ function setStoredCalls(map) {
   try { localStorage.setItem(CALLED_KEY, JSON.stringify(map)); } catch {}
 }
 function getCalledBaseline(contract) {
-  return contract ? (getStoredCalls()[contract] ?? null) : null;
+  if (!contract) return null;
+  return serverCalledBaselines[contract] ?? getStoredCalls()[contract] ?? null;
 }
 function updateCalledBaseline(contract, flag) {
   if (!contract || !flag?.mcap || flag.mcap <= 0 || !flag.ts) return;
@@ -1114,6 +1167,18 @@ function updateCalledBaseline(contract, flag) {
   if (!prev || new Date(flag.ts).getTime() < new Date(prev.ts).getTime()) {
     map[contract] = { mcap: flag.mcap, ts: flag.ts };
     setStoredCalls(map);
+  }
+}
+
+async function syncCalledBaselines() {
+  if (!BASELINE_URL) return;
+  try {
+    const r = await fetchWithTimeout(BASELINE_URL, { cache: "no-store" }, 6000);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    serverCalledBaselines = data.baselines || {};
+  } catch (err) {
+    console.warn("baseline sync failed:", err.message || err);
   }
 }
 
@@ -1391,6 +1456,22 @@ const fmtAge = ms => {
 };
 const scoreClass = s => s == null ? "" : s >= 70 ? "s-hi" : s >= 40 ? "s-md" : "s-lo";
 const truncCA = ca => !ca ? "" : ca.length > 14 ? ca.slice(0,4) + "…" + ca.slice(-4) : ca;
+const setDataStrip = (id, html) => {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+};
+
+function parseWalletHealth(s) {
+  if (!s) return {};
+  const top = String(s).match(/Top\s*10:\s*`?([\d.]+)%/i);
+  const bundler = String(s).match(/Bundler:\s*`?([\d.]+)%/i);
+  const fresh = String(s).match(/Fresh:\s*`?([\d.]+)%/i);
+  return {
+    top10: top ? parseFloat(top[1]) : null,
+    bundler: bundler ? parseFloat(bundler[1]) : null,
+    fresh: fresh ? parseFloat(fresh[1]) : null,
+  };
+}
 
 function renderScanStats(md) {
   const top3 = md.topFlagged.slice(0,3).map(([sym,n])=>`${sym}<span style="color:var(--green-dim)">·${n}</span>`).join("&nbsp;&nbsp;") || "—";
@@ -1433,6 +1514,7 @@ function coinCard(c, tier, md) {
   const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
   const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
   const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
+  const calledSource = storedCall?.source === "bot" ? "server baseline" : storedCall ? "browser baseline" : "current feed";
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
@@ -1450,6 +1532,20 @@ function coinCard(c, tier, md) {
   const ageMs = live?.source === "dexscreener" && live?.pairCreatedAt
     ? new Date(live.pairCreatedAt).getTime()
     : null;
+  const health = parseWalletHealth(c.health);
+  const symbolContracts = new Set((md.flagsBySymbol.get(c.symbol) || []).map(f => f.contract).filter(Boolean));
+  const anomalies = [];
+  const dislocation = live?.mcap && c.mcap ? Math.max(live.mcap, c.mcap) / Math.max(1, Math.min(live.mcap, c.mcap)) : 1;
+  if (!live) anomalies.push({ label: "snapshot only", bad: true, title: "No live quote returned yet" });
+  if (live?.source !== "dexscreener") anomalies.push({ label: "no dex", bad: true, title: "Dexscreener pair unavailable; fallback data used" });
+  if (live?.source === "dexscreener" && !live.pairCreatedAt) anomalies.push({ label: "age missing", bad: false, title: "Dexscreener did not return pairCreatedAt" });
+  if (dislocation >= 10) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
+  if (live?.liquidity != null && live.liquidity < 10000) anomalies.push({ label: "low liq", bad: false, title: `Live liquidity ${fmtCompact(live.liquidity)}` });
+  if (symbolContracts.size > 1) anomalies.push({ label: "reused symbol", bad: false, title: `${symbolContracts.size} contracts share $${c.symbol}` });
+  const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
+  const bannerTitle = mcapDelta == null
+    ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
+    : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
 
   // Parse Discord swaps string: "10,681 (Buy/Sell: 1.22x)"
   let swapCount = null, swapRatio = null;
@@ -1483,27 +1579,37 @@ function coinCard(c, tier, md) {
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
       </div>
+      <div class="source-line">
+        <span class="src">${sourceLabel}</span>
+        <span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span>
+      </div>
       ${(() => {
         // Banner: % change from Discord "called at" mcap to CURRENT live mcap.
         const delta = mcapDelta;
         if (delta == null) {
-          return `<div class="mcap-banner loading">&nbsp;</div>`;
+          return `<div class="mcap-banner loading" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
         }
         const cls = delta >= 0 ? "pos" : "neg";
         const txt = `${delta >= 0 ? "▲ +" : "▼ "}${Math.abs(delta).toFixed(1)}%`;
-        return `<div class="mcap-banner ${cls}">${txt}</div>`;
+        return `<div class="mcap-banner ${cls}" title="${escapeHTML(bannerTitle)}">${txt}</div>`;
       })()}
-      <div class="kvs">
+      <div class="kvs primary">
         <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
         <div class="kv"><span class="k">liq</span><span class="v">${fmtCompact(liq)}</span></div>
         <div class="kv"><span class="k">age</span><span class="v">${fmtAge(ageMs)}</span></div>
         <div class="kv"><span class="k">vol 24h</span><span class="v">${fmtCompact(vol)}</span></div>
+      </div>
+      <div class="kvs secondary">
         <div class="kv"><span class="k">kols</span><span class="v">${kols}</span></div>
         <div class="kv"><span class="k">degens</span><span class="v">${degens}</span></div>
         <div class="kv"><span class="k">swaps</span><span class="v">${swaps}</span></div>
         <div class="kv"><span class="k">holders</span><span class="v">${holders}</span></div>
-        <div class="kv"><span class="k">b/s</span><span class="v">${bs}</span></div>
-        <div class="kv"><span class="k">dev</span><span class="v ${devStatus ? (devStatus === "hold" ? "neg" : "pos") : ""}">${devDot} ${devLabel}</span></div>
+      </div>
+      <div class="risk-line">
+        <span class="${devStatus ? (devStatus === "hold" ? "neg" : "pos") : ""}">dev ${devDot} ${devLabel}</span>
+        <span>b/s ${bs}</span>
+        ${health.top10 != null ? `<span>top10 ${health.top10.toFixed(1)}%</span>` : ""}
+        ${health.bundler != null ? `<span class="${health.bundler > 20 ? "neg" : ""}">bundler ${health.bundler.toFixed(1)}%</span>` : ""}
       </div>
       <div class="chg">${chSpan("5m",ch5m)} ${chSpan("1h",ch1h)} ${chSpan("24h",ch24)}</div>
       ${calledMcap != null && calledTs != null ? `<div class="called">called at <span class="mcap-val">${fmtCompact(calledMcap)} mc</span> · ${fmtAgo(calledTs || "")}</div>`:""}
@@ -1561,6 +1667,13 @@ function renderMarketScan(md) {
     `;
   }).join("");
   document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
+  const liveCoins = md.posts.flatMap(p => p.coins).filter(c => c.live);
+  const dexCount = liveCoins.filter(c => c.live?.source === "dexscreener").length;
+  const fallbackCount = liveCoins.filter(c => c.live?.source === "gmgn").length;
+  const snapshotCount = md.totalFlags - liveCoins.length;
+  setDataStrip("scan-data-strip",
+    `// source: <b>${dexCount}</b> dexscreener live · <b>${fallbackCount}</b> gmgn fallback · <b class="${snapshotCount ? "warn" : ""}">${snapshotCount}</b> snapshot only · baselines: <b>${Object.keys(serverCalledBaselines).length ? "server" : "browser"}</b>`
+  );
   const now = new Date();
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   // Show yesterday's date until the 02:00 UTC scan job, then switch to current date
@@ -1597,6 +1710,9 @@ function renderFlagHistory(md) {
   }
   // Sort by gain descending
   wins.sort((a, b) => b.gain - a.gain);
+  setDataStrip("tr-data-strip",
+    `// source: called baselines + rolling local ATH · tracked wins: <b>${wins.length}</b> · baselines: <b>${Object.keys(serverCalledBaselines).length ? "server/browser" : "browser"}</b>`
+  );
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = wins.slice(0, 10).map(w => {
     const ca = w.contract || "";
@@ -1679,6 +1795,7 @@ function renderWinnersLosers(md) {
 
   if (!perf.length) {
     meta.textContent = "// no flags in last 24h…";
+    setDataStrip("wl-data-strip", `// source: awaiting live performance data`);
     summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins flagged in the last 24 hours — once Bubba Bot posts a scan, winners and losers appear here.</div>`;
     if (wlChart) { wlChart.destroy(); wlChart = null; }
     if (ctx?.getContext) ctx.getContext("2d").clearRect(0, 0, ctx.width, ctx.height);
@@ -1700,6 +1817,9 @@ function renderWinnersLosers(md) {
   };
 
   meta.textContent = fmtSync(latestTs);
+  setDataStrip("wl-data-strip",
+    `// source: <b>${perf.filter(p => p.isLive).length}</b> live tokens · <b>${perf.filter(p => !p.isLive).length}</b> scan snapshots · window: <b>rolling 24h</b>`
+  );
   summary.innerHTML = `
     <span class="pill">tracked: <b>${perf.length}</b></span>
     <span class="pill">winners: <b>${winners.length}</b></span>
@@ -1813,10 +1933,12 @@ const fmtTs = iso => {
 let feedSeen = new Set();
 let feedFirstRender = true;
 let feedMessages = []; // Discord /feed messages — fallback for Intel Feed
+let currentIntelSource = "live intel endpoint";
 
 function renderFeedOffline(){
   const f = document.getElementById("feed");
   document.getElementById("feed-meta").textContent = "// FEED OFFLINE";
+  setDataStrip("intel-data-strip", `// source: <span class="bad">offline</span>`);
   f.innerHTML = `
     <div class="feed-empty">
 > <b>FEED OFFLINE</b> — no Discord uplink configured.
@@ -1833,6 +1955,7 @@ function renderFeedError(msg){
   const f = document.getElementById("feed");
   document.getElementById("feed-meta").innerHTML =
     '<span style="color:var(--red)">// CONNECTION ERROR</span>';
+  setDataStrip("intel-data-strip", `// source: <span class="bad">connection error</span>`);
   if(feedFirstRender){
     f.innerHTML = `<div class="feed-empty">
 > <b style="color:var(--red)">UPLINK FAILED</b>
@@ -1850,6 +1973,7 @@ function renderFeed(messages){
   if(!messages.length){
     f.innerHTML = `<div class="feed-empty">// channel is quiet. waiting for transmission…</div>`;
     document.getElementById("feed-meta").textContent = "last sync —";
+    setDataStrip("intel-data-strip", `// source: ${escapeHTML(currentIntelSource)} · <b>0</b> messages`);
     return;
   }
 
@@ -1912,6 +2036,7 @@ function renderFeed(messages){
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   document.getElementById("feed-meta").textContent =
     `${now.getUTCDate()} ${months[now.getUTCMonth()]} ${now.getUTCFullYear()}\nLAST SYNC ${now.toISOString().slice(11,19)}`;
+  setDataStrip("intel-data-strip", `// source: ${escapeHTML(currentIntelSource)} · <b>${messages.length}</b> messages · newest: <b>${fmtAgo(messages[0]?.timestamp)}</b>`);
 }
 
 // Poll the Discord-driven /feed for the scan panels (MARKET SCAN, FLAG HISTORY,
@@ -1924,6 +2049,8 @@ async function pollFeed(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const data = await r.json();
     const msgs = Array.isArray(data) ? data : (data.messages || []);
+
+    await syncCalledBaselines();
 
     // Build market data and render snapshot first (instant paint).
     const md = buildMarketData(msgs);
@@ -1958,6 +2085,7 @@ async function pollIntelFeed() {
       if (r.ok) {
         const data = await r.json();
         msgs = Array.isArray(data) ? data : (data.messages || []);
+        if (msgs.length) currentIntelSource = "live intel endpoint";
       }
     } catch (err) {
       console.warn("intel live fetch failed:", err.message || err);
@@ -1967,6 +2095,7 @@ async function pollIntelFeed() {
   // 2. Fallback to Discord feed messages
   if (!msgs.length && feedMessages.length) {
     msgs = feedMessages;
+    currentIntelSource = "discord feed fallback";
   }
 
   // 3. Fallback to local intel snapshot (bundled with the site)
@@ -1976,6 +2105,7 @@ async function pollIntelFeed() {
       if (r.ok) {
         const data = await r.json();
         msgs = Array.isArray(data) ? data : (data.messages || []);
+        if (msgs.length) currentIntelSource = "bundled intel snapshot";
       }
     } catch (err) {
       console.warn("intel snapshot fallback failed:", err.message || err);
@@ -2005,6 +2135,7 @@ function renderBurpboard(data) {
   const wrap = document.getElementById("burpboard");
   if (!data?.tokens?.length) {
     meta.textContent = "// no burpboard data yet";
+    setDataStrip("bb-data-strip", `// source: awaiting burpboard scrape`);
     summaryEl.innerHTML = "";
     wrap.innerHTML = `<div class="feed-empty">// awaiting burpboard scrape…</div>`;
     return;
@@ -2014,6 +2145,7 @@ function renderBurpboard(data) {
   const pad = n => String(n).padStart(2, '0');
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   meta.textContent = `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}\nLAST SYNC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+  setDataStrip("bb-data-strip", `// source: telegram scrape · <b>${data.tokens.length}</b> tokens · updated: <b>${fmtAgo(data.updated)}</b>`);
   summaryEl.innerHTML = `
     ${s.avgGain ? `<span class="pill">avg: <b>${escapeHTML(s.avgGain)}</b></span>` : ""}
     ${s.top10   ? `<span class="pill">top 10: <b>${escapeHTML(s.top10)}</b></span>` : ""}
@@ -2094,6 +2226,7 @@ async function pollBurpboard() {
     lastBurpUpdate = Date.now();
   } catch (err) {
     document.getElementById("bb-meta").textContent = "// burpboard offline: " + (err.message || err);
+    setDataStrip("bb-data-strip", `// source: <span class="bad">burpboard offline</span>`);
   }
 }
 function startBurpboardPolling() {
@@ -2183,6 +2316,7 @@ setInterval(updateFreshness, 5000);
       fetchWithTimeout("intel-snapshot.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (feedSnap?.messages?.length) {
+      await syncCalledBaselines();
       const md = buildMarketData(feedSnap.messages);
       renderAllScanPanels(md);
       lastFeedUpdate = Date.now();
