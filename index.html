@@ -960,6 +960,48 @@ function renderChart(rows, startingCapital){
   });
 }
 
+/* ---------- GMGN LIVE DATA (via bot proxy) ---------- */
+const GMGN_CHAIN = "sol";
+
+async function fetchGMGNData(addresses) {
+  const result = new Map();
+  if (!addresses.length) return result;
+  for (const addr of addresses) {
+    try {
+      const url = `${FEED_URL.replace(/\/feed$/, "")}/gmgn?chain=${GMGN_CHAIN}&address=${encodeURIComponent(addr)}`;
+      const r = await fetchWithTimeout(url, { cache: "no-store" }, 10000);
+      if (!r.ok) { console.warn("gmgn", r.status, addr); continue; }
+      const json = await r.json();
+      const data = json.data || json;
+      if (data?.address) result.set(addr, data);
+    } catch (err) {
+      console.warn("gmgn fetch err:", err.message, addr);
+    }
+  }
+  return result;
+}
+
+function gmgnToLive(data) {
+  if (!data) return null;
+  const price = parseFloat(data.price?.price || data.price || 0);
+  const supply = parseFloat(data.circulating_supply || data.total_supply || 0);
+  const mcap = price * supply;
+  return {
+    price: price || null,
+    mcap: mcap || null,
+    liquidity: parseFloat(data.liquidity || data.pool?.liquidity || 0) || null,
+    volume24h: parseFloat(data.price?.volume_24h || data.price?.volume24h || 0) || null,
+    change: {
+      "5m": parseFloat(data.price?.price_5m || 0) ? ((price - parseFloat(data.price?.price_5m)) / parseFloat(data.price?.price_5m)) * 100 : null,
+      "1h": parseFloat(data.price?.price_1h || 0) ? ((price - parseFloat(data.price?.price_1h)) / parseFloat(data.price?.price_1h)) * 100 : null,
+      "24h": parseFloat(data.price?.price_24h || 0) ? ((price - parseFloat(data.price?.price_24h)) / parseFloat(data.price?.price_24h)) * 100 : null,
+    },
+    dex: data.pool?.exchange || null,
+    url: data.link?.gmgn || null,
+    pairCreatedAt: data.pool?.creation_timestamp ? data.pool.creation_timestamp * 1000 : null,
+  };
+}
+
 /* ---------- DEXSCREENER LIVE PRICES ----------
    Free public API, CORS=*, supports up to 30 addresses per call. */
 const DEXSCREENER_CHAIN = "solana"; // Bubba Bot tracks Solana coins
@@ -1044,7 +1086,7 @@ function updateATH(contract, liveMcap) {
   }
 }
 
-// mutate md.posts coins in place: attach `.live` from dexscreener; also store
+// mutate md.posts coins in place: attach `.live` from GMGN; also store
 // md.live as a global Map<address, livePair> for any other consumers.
 async function enrichWithLive(md) {
   const addresses = [];
@@ -1057,14 +1099,14 @@ async function enrichWithLive(md) {
       }
     }
   }
-  const pairs = await fetchDexscreenerData(addresses);
-  md.live = pairs;
+  const gmgnPairs = await fetchGMGNData(addresses);
+  md.live = gmgnPairs;
 
   for (const post of md.posts) {
     for (const coin of post.coins) {
-      const pair = pairs.get(coin.contract);
-      if (pair) {
-        coin.live = dexToLive(pair);
+      const data = gmgnPairs.get(coin.contract);
+      if (data) {
+        coin.live = gmgnToLive(data);
         // Update rolling ATH with live mcap
         updateATH(coin.contract, coin.live?.mcap);
       }

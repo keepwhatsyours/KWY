@@ -159,6 +159,37 @@ app.get('/feed', (_req, res) => {
   });
 });
 
+// ---------- GMGN TOKEN INFO PROXY ----------
+// Proxies GMGN token info so the frontend can fetch live data via the bot.
+// Query: ?chain=sol&address=<contract>
+app.get('/gmgn', async (req, res) => {
+  const { chain, address } = req.query;
+  if (!chain || !address) {
+    return res.status(400).json({ error: 'missing chain or address' });
+  }
+  if (!GMGN_API_KEY) {
+    return res.status(503).json({ error: 'GMGN_API_KEY not configured' });
+  }
+  try {
+    const url = `https://gmgn.ai/defi/quotation/v1/tokens/sol/${address}`;
+    const r = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${GMGN_API_KEY}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!r.ok) {
+      return res.status(r.status).json({ error: `gmgn ${r.status}` });
+    }
+    const data = await r.json();
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json(data);
+  } catch (err) {
+    console.warn('[warn] gmgn proxy error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // ---------- BURPBOARD scraper (Telegram t.me/s/burpboard) ----------
 // Mirrors the latest "Best performing tokens | Last 24H" post into JSON.
 // Cached 5 minutes — Burpboard updates much less frequently than that.
