@@ -986,6 +986,14 @@ function gmgnToLive(data) {
   const price = parseFloat(data.price?.price || data.price || 0);
   const supply = parseFloat(data.circulating_supply || data.total_supply || 0);
   const mcap = price * supply;
+  // GMGN age: try pool creation first, then token creation, then open timestamp
+  const poolTs = data.pool?.creation_timestamp;
+  const tokenTs = data.creation_timestamp;
+  const openTs = data.open_timestamp;
+  const createdAt = poolTs && poolTs > 0 ? poolTs * 1000
+                  : tokenTs && tokenTs > 0 ? tokenTs * 1000
+                  : openTs && openTs > 0 ? openTs * 1000
+                  : null;
   return {
     price: price || null,
     mcap: mcap || null,
@@ -998,7 +1006,7 @@ function gmgnToLive(data) {
     },
     dex: data.pool?.exchange || null,
     url: data.link?.gmgn || null,
-    pairCreatedAt: data.pool?.creation_timestamp ? data.pool.creation_timestamp * 1000 : null,
+    pairCreatedAt: createdAt,
   };
 }
 
