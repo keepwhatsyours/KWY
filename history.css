@@ -130,7 +130,7 @@ h1{margin:4px 0 6px;font-size:clamp(28px,6vw,70px);line-height:1;letter-spacing:
 .scan-ledger-table{
   width:100%;min-width:1190px;table-layout:fixed;border-collapse:collapse;font-size:12px;
 }
-.scan-ledger-table .col-time{width:150px}
+.scan-ledger-table .col-time{width:105px}
 .scan-ledger-table .col-coin{width:125px}
 .scan-ledger-table .col-updown{width:85px}
 .scan-ledger-table .col-called{width:90px}

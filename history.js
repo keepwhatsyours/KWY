@@ -102,7 +102,7 @@
     const d = new Date(iso);
     const pad = n => String(n).padStart(2, "0");
     if (Number.isNaN(d.getTime())) return "-";
-    return `${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} @ ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    return `${pad(d.getUTCMonth()+1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()}<br>${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
   };
   const truncCA = (ca) => !ca ? "" : ca.length > 14 ? ca.slice(0, 4) + "..." + ca.slice(-4) : ca;
   const isLikelyAddress = (s) => /^[1-9A-HJ-NP-Za-km-z]{32,60}$/.test(String(s || "").trim());
