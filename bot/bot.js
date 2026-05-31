@@ -13,6 +13,8 @@ dotenv.config({ override: true });
 
 import express from 'express';
 import cors from 'cors';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 
 // ---------- config ----------
@@ -24,6 +26,7 @@ const {
   PORT = '3030',
   ALLOWED_ORIGIN = '*',
   GMGN_API_KEY,
+  BASELINES_PATH = path.join(process.cwd(), 'data', 'called-baselines.json'),
 } = process.env;
 
 if (!DISCORD_TOKEN) {
@@ -50,6 +53,10 @@ const client = new Client({
 /** newest-first ring buffer of channel messages */
 let feed = [];
 const calledBaselines = new Map();
+const bootedAt = new Date().toISOString();
+let readyAt = null;
+let baselinesLoaded = false;
+let baselinesSaveTimer = null;
 
 function cleanFieldName(s) {
   return String(s || '').replace(/^[\s\W_]+/u, '').trim();
@@ -70,6 +77,7 @@ function parseBaselineMcap(v) {
 }
 
 function updateCalledBaselines(messages = feed) {
+  let changed = false;
   for (const msg of messages) {
     for (const embed of msg.embeds || []) {
       const fields = {};
@@ -87,9 +95,47 @@ function updateCalledBaselines(messages = feed) {
           ts: msg.timestamp,
           source: 'bot',
         });
+        changed = true;
       }
     }
   }
+  if (changed) scheduleBaselineSave();
+  return changed;
+}
+
+async function loadCalledBaselines() {
+  try {
+    const raw = await readFile(BASELINES_PATH, 'utf8');
+    const json = JSON.parse(raw);
+    const baselines = json.baselines || json;
+    for (const [contract, baseline] of Object.entries(baselines || {})) {
+      if (baseline?.mcap && baseline?.ts) calledBaselines.set(contract, baseline);
+    }
+    baselinesLoaded = true;
+    console.log(`[ok]  loaded ${calledBaselines.size} called baselines`);
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.warn('[warn] failed to load baselines:', err.message);
+    baselinesLoaded = true;
+  }
+}
+
+async function saveCalledBaselines() {
+  await mkdir(path.dirname(BASELINES_PATH), { recursive: true });
+  const payload = {
+    updated: new Date().toISOString(),
+    count: calledBaselines.size,
+    baselines: Object.fromEntries(calledBaselines),
+  };
+  await writeFile(BASELINES_PATH, JSON.stringify(payload, null, 2));
+}
+
+function scheduleBaselineSave() {
+  clearTimeout(baselinesSaveTimer);
+  baselinesSaveTimer = setTimeout(() => {
+    saveCalledBaselines().catch((err) => {
+      console.warn('[warn] failed to save baselines:', err.message);
+    });
+  }, 500);
 }
 
 function shape(msg) {
@@ -124,7 +170,10 @@ function shape(msg) {
   };
 }
 
+await loadCalledBaselines();
+
 client.once('ready', async () => {
+  readyAt = new Date().toISOString();
   console.log(`[ok]  bot online as ${client.user.tag}`);
   if (GUILD_ID) console.log(`[ok]  watching guild ${GUILD_ID}`);
   console.log(`[ok]  watching channel ${CHANNEL_ID}`);
@@ -159,8 +208,7 @@ client.on('messageUpdate', async (_old, msg) => {
     const idx = feed.findIndex((m) => m.id === fresh.id);
     if (idx >= 0) {
       feed[idx] = shape(fresh);
-      calledBaselines.clear();
-      updateCalledBaselines(feed);
+      updateCalledBaselines([feed[idx]]);
     }
   } catch (err) {
     console.warn('[warn] update failed:', err.message);
@@ -192,9 +240,14 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     ready: !!client.user,
+    booted_at: bootedAt,
+    ready_at: readyAt,
     bot: client.user?.tag ?? null,
     channel: CHANNEL_ID,
     messages: feed.length,
+    baselines: calledBaselines.size,
+    baselines_loaded: baselinesLoaded,
+    gmgn_configured: !!GMGN_API_KEY,
     uptime_s: Math.round(process.uptime()),
   });
 });

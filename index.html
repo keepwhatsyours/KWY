@@ -570,6 +570,49 @@
   .data-strip b{color:var(--green);font-weight:600}
   .data-strip .warn{color:var(--amber)}
   .data-strip .bad{color:#ff5577}
+  .health-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;
+    margin-top:8px;
+  }
+  .health-pill{
+    border:1px solid rgba(0,255,65,.12);background:rgba(0,255,65,.02);
+    padding:7px 8px;border-radius:3px;font-size:10px;
+    color:var(--green-dim);text-transform:uppercase;letter-spacing:.08em;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+  }
+  .health-pill b{font-size:11px;color:var(--green);font-weight:700}
+  .health-pill.warn b{color:var(--amber)}
+  .health-pill.bad b{color:#ff5577}
+  .scan-controls{
+    display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;
+  }
+  .scan-controls select,
+  .scan-controls button{
+    background:rgba(0,255,65,.035);border:1px solid var(--green-deep);
+    color:var(--green);font-family:var(--mono);font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.08em;border-radius:3px;
+    padding:5px 8px;min-height:28px;
+  }
+  .scan-controls button{cursor:pointer}
+  .scan-controls button.active{
+    background:var(--green);color:#000;border-color:var(--green);
+    box-shadow:0 0 10px rgba(0,255,65,.25);
+  }
+  .watch-btn{
+    margin-left:6px;background:rgba(0,255,65,.035);
+    border:1px solid var(--green-deep);color:var(--green-dim);
+    font-family:var(--mono);font-size:12px;line-height:1;
+    width:24px;height:24px;border-radius:3px;cursor:pointer;
+  }
+  .watch-btn.active{color:#000;background:var(--green);border-color:var(--green)}
+  .coin-detail{
+    display:none;grid-template-columns:repeat(4,1fr);gap:4px;
+    margin:-2px 0 8px;padding:6px;border:1px dashed rgba(0,255,65,.14);
+    background:rgba(0,255,65,.018);font-size:10px;text-align:center;
+  }
+  .coin.expanded .coin-detail{display:grid}
+  .coin-detail span{color:var(--green-dim);text-transform:uppercase;letter-spacing:.06em}
+  .coin-detail b{display:block;color:#cdeacd;font-weight:600;font-variant-numeric:tabular-nums}
   footer .disclaimer{color:#666;text-transform:none;letter-spacing:0;margin-top:6px;font-size:11px;line-height:1.5;max-width:760px;margin-left:auto;margin-right:auto}
 
   /* small */
@@ -596,6 +639,8 @@
     .coin .mcap-banner{font-size:20px;min-height:40px}
     .coin .kvs{grid-template-columns:1fr;gap:4px}
     .coin .kvs.primary{grid-template-columns:1fr 1fr}
+    .coin-detail{grid-template-columns:1fr 1fr}
+    .scan-controls select,.scan-controls button{flex:1;min-width:120px}
     .data-strip{display:block;line-height:1.55}
   }
 </style>
@@ -633,10 +678,45 @@
   </div>
   <div class="tagline">// daily <b>ai-generated</b> meme coin ops &nbsp;·&nbsp; live <b>p&amp;l</b> &nbsp;·&nbsp; no hopium <b>only data</b><span class="cursor">&nbsp;</span></div>
 
+  <div class="panel">
+    <h2>SYSTEM HEALTH <span class="meta" id="health-meta">// awaiting status…</span></h2>
+    <div id="health-grid" class="health-grid">
+      <div class="health-pill"><span>feed</span><b>...</b></div>
+      <div class="health-pill"><span>dex</span><b>...</b></div>
+      <div class="health-pill"><span>baselines</span><b>...</b></div>
+      <div class="health-pill"><span>burpboard</span><b>...</b></div>
+    </div>
+  </div>
+
   <!-- MARKET SCAN — latest Big/Mid/Low Cap signals from Discord -->
   <div class="panel">
     <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
+    <div class="scan-controls">
+      <select id="tier-filter" title="filter by tier">
+        <option value="all">all tiers</option>
+        <option value="big">big cap</option>
+        <option value="mid">mid cap</option>
+        <option value="low">low cap</option>
+      </select>
+      <select id="scan-filter" title="filter cards">
+        <option value="all">all coins</option>
+        <option value="live">live only</option>
+        <option value="dev-exited">dev exited</option>
+        <option value="watchlist">watchlist</option>
+      </select>
+      <select id="scan-sort" title="sort cards">
+        <option value="default">scan order</option>
+        <option value="up">highest up</option>
+        <option value="down">biggest down</option>
+        <option value="newest">newest</option>
+      </select>
+    </div>
     <div id="market-scan"></div>
+  </div>
+
+  <div class="panel">
+    <h2>WATCHLIST <span class="meta" id="watch-meta">// no saved tokens</span></h2>
+    <div id="watchlist"></div>
   </div>
 
   <!-- DAILY WINNERS & LOSERS — first flag today vs live MCAP -->
@@ -686,7 +766,7 @@
   </div>
 
   <footer>
-    [ KEEPWHATSYOURS.AI ] · BUILT FOR DEGENS · POWERED BY OPEN CLAW · PRICES via COINGECKO
+    [ KEEPWHATSYOURS.AI ] · BUILT FOR DEGENS · POWERED BY OPEN CLAW · MARKET DATA VIA DEXSCREENER / GMGN / BUBBA BOT / BURPBOARD
     <div class="social-links">
       <a href="https://x.com/KeepWhatsYours" target="_blank" rel="noopener" aria-label="X (Twitter)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
@@ -739,6 +819,7 @@
 const FEED_URL = "https://kwy.onrender.com/feed";
 const FEED_POLL_MS = 30000;
 const BASELINE_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/baselines") : "";
+const HEALTH_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/health") : "";
 const RESET_DATE = "2026-05-18"; // posts before this date are ignored for scans / tracking
 
 const COINGECKO = "https://api.coingecko.com/api/v3/simple/price";
@@ -1115,13 +1196,11 @@ function dexToLive(pair) {
 // This is the ONLY accurate ATH — it tracks Dexscreener live data over time.
 const ATH_KEY = "kwy-ath-v1";
 const ATH_RESET_KEY = "kwy-ath-reset-v1";
-const CALLED_KEY = "kwy-called-baselines-v1";
 let serverCalledBaselines = {};
 function maybeResetATH() {
   const lastReset = localStorage.getItem(ATH_RESET_KEY);
   if (lastReset !== RESET_DATE) {
     localStorage.removeItem(ATH_KEY);
-    localStorage.removeItem(CALLED_KEY);
     localStorage.setItem(ATH_RESET_KEY, RESET_DATE);
   }
 }
@@ -1148,27 +1227,9 @@ function updateATH(contract, liveMcap) {
   }
 }
 
-function getStoredCalls() {
-  try {
-    const raw = localStorage.getItem(CALLED_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-function setStoredCalls(map) {
-  try { localStorage.setItem(CALLED_KEY, JSON.stringify(map)); } catch {}
-}
 function getCalledBaseline(contract) {
   if (!contract) return null;
-  return serverCalledBaselines[contract] ?? getStoredCalls()[contract] ?? null;
-}
-function updateCalledBaseline(contract, flag) {
-  if (!contract || !flag?.mcap || flag.mcap <= 0 || !flag.ts) return;
-  const map = getStoredCalls();
-  const prev = map[contract];
-  if (!prev || new Date(flag.ts).getTime() < new Date(prev.ts).getTime()) {
-    map[contract] = { mcap: flag.mcap, ts: flag.ts };
-    setStoredCalls(map);
-  }
+  return serverCalledBaselines[contract] ?? null;
 }
 
 async function syncCalledBaselines() {
@@ -1197,6 +1258,7 @@ async function enrichWithLive(md) {
     }
   }
   const dexPairs = await fetchDexscreenerData(addresses);
+  if (dexPairs.size) lastDexUpdate = Date.now();
   const missing = addresses.filter(addr => !dexPairs.has(addr));
   const gmgnPairs = missing.length ? await fetchGMGNData(missing) : new Map();
   md.live = new Map([...dexPairs, ...gmgnPairs]);
@@ -1397,12 +1459,6 @@ function buildMarketData(messages) {
       totalFlags++;
     }
   }
-  for (const [contract, flags] of flagsByContract) {
-    const earliestWithMcap = [...flags]
-      .sort((a, b) => (a.ts || '').localeCompare(b.ts || ''))
-      .find(f => f.mcap != null && f.mcap > 0);
-    updateCalledBaseline(contract, earliestWithMcap);
-  }
   const topFlagged = [...flagCounts.entries()].sort((a,b)=>b[1]-a[1]);
   const allScores = posts.flatMap(p=>p.coins.map(c=>c.score)).filter(s=>s!=null);
   const avgScore = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
@@ -1461,6 +1517,29 @@ const setDataStrip = (id, html) => {
   const el = document.getElementById(id);
   if (el) el.innerHTML = html;
 };
+const WATCHLIST_KEY = "kwy-watchlist-v1";
+let currentMarketData = null;
+let scanControls = { tier: "all", filter: "all", sort: "default" };
+
+function getWatchlist() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(WATCHLIST_KEY) || "[]"));
+  } catch { return new Set(); }
+}
+function setWatchlist(set) {
+  try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...set])); } catch {}
+}
+function isWatched(contract) {
+  return !!contract && getWatchlist().has(contract);
+}
+function toggleWatch(contract) {
+  if (!contract) return;
+  const set = getWatchlist();
+  if (set.has(contract)) set.delete(contract);
+  else set.add(contract);
+  setWatchlist(set);
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+}
 
 function parseWalletHealth(s) {
   if (!s) return {};
@@ -1520,7 +1599,7 @@ function coinCard(c, tier, md) {
   const storedCall = storedCallLooksBad ? null : rawStoredCall;
   const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
   const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
-  const calledSource = storedCall?.source === "bot" ? "server baseline" : storedCall ? "browser baseline" : "current feed";
+  const calledSource = storedCall?.source === "bot" ? "server baseline" : storedCall ? "server baseline" : "current feed";
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
@@ -1539,20 +1618,16 @@ function coinCard(c, tier, md) {
     ? new Date(live.pairCreatedAt).getTime()
     : null;
   const health = parseWalletHealth(c.health);
-  const symbolContracts = new Set((md.flagsBySymbol.get(c.symbol) || []).map(f => f.contract).filter(Boolean));
   const anomalies = [];
   const dislocation = live?.mcap && c.mcap ? Math.max(live.mcap, c.mcap) / Math.max(1, Math.min(live.mcap, c.mcap)) : 1;
-  if (!live) anomalies.push({ label: "snapshot only", bad: true, title: "No live quote returned yet" });
-  if (live?.source !== "dexscreener") anomalies.push({ label: "no dex", bad: true, title: "Dexscreener pair unavailable; fallback data used" });
-  if (live?.source === "dexscreener" && !live.pairCreatedAt) anomalies.push({ label: "age missing", bad: false, title: "Dexscreener did not return pairCreatedAt" });
+  if (!live) anomalies.push({ label: "no live data", bad: true, title: "No live quote returned yet" });
   if (storedCallLooksBad) anomalies.push({ label: "bad baseline ignored", bad: true, title: `Rejected baseline ${fmtCompact(rawStoredCall.mcap)} for ${fmtCompact(baselineCheckMcap)} scan mcap` });
   if (dislocation >= 10) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
-  if (live?.liquidity != null && live.liquidity < 10000) anomalies.push({ label: "low liq", bad: false, title: `Live liquidity ${fmtCompact(live.liquidity)}` });
-  if (symbolContracts.size > 1) anomalies.push({ label: "reused symbol", bad: false, title: `${symbolContracts.size} contracts share $${c.symbol}` });
   const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
   const bannerTitle = mcapDelta == null
     ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
     : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
+  const watched = isWatched(c.contract);
 
   // Parse Discord swaps string: "10,681 (Buy/Sell: 1.22x)"
   let swapCount = null, swapRatio = null;
@@ -1578,25 +1653,34 @@ function coinCard(c, tier, md) {
   const devLabel   = devStatus === "hold" ? "holding" : devStatus === "sell" ? "exited" : "—";
 
   return `
-    <div class="coin tier-${tier} ${isLive?"is-live":""}">
+    <div class="coin tier-${tier} ${isLive?"is-live":""}" data-contract="${escapeHTML(c.contract || "")}">
       <div class="row1">
         <div>
           <div class="sym">$${escapeHTML(c.symbol)} <span class="live-dot ${isLive ? "" : "offline"}" title="${escapeHTML(liveTitle)}"></span></div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
-        ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
+        <div style="display:flex;align-items:center;gap:4px">
+          ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
+          ${c.contract ? `<button class="watch-btn ${watched ? "active" : ""}" data-watch="${escapeHTML(c.contract)}" title="${watched ? "remove from watchlist" : "add to watchlist"}">${watched ? "✓" : "+"}</button>` : ""}
+        </div>
       </div>
       ${anomalies.length ? `<div class="source-line"><span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span></div>` : ""}
       ${(() => {
         // Banner: % change from Discord "called at" mcap to CURRENT live mcap.
         const delta = mcapDelta;
         if (delta == null) {
-          return `<div class="mcap-banner loading" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
+          return `<div class="mcap-banner loading" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
         }
         const cls = delta >= 0 ? "pos" : "neg";
         const txt = `${delta >= 0 ? "▲ +" : "▼ "}${Math.abs(delta).toFixed(1)}%`;
-        return `<div class="mcap-banner ${cls}" title="${escapeHTML(bannerTitle)}">${txt}</div>`;
+        return `<div class="mcap-banner ${cls}" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">${txt}</div>`;
       })()}
+      <div class="coin-detail">
+        <span>called<b>${fmtCompact(calledMcap)}</b></span>
+        <span>now<b>${fmtCompact(currentMcap)}</b></span>
+        <span>change<b>${mcapDelta == null ? "—" : `${mcapDelta >= 0 ? "+" : ""}${mcapDelta.toFixed(1)}%`}</b></span>
+        <span>source<b>${sourceLabel}</b></span>
+      </div>
       <div class="kvs primary">
         <div class="kv"><span class="k">mcap</span><span class="v">${fmtCompact(mcap)}</span></div>
         <div class="kv"><span class="k">liq</span><span class="v">${fmtCompact(liq)}</span></div>
@@ -1636,11 +1720,81 @@ function coinCard(c, tier, md) {
   `;
 }
 
+function coinKey(c) {
+  return c.contract || c.symbol;
+}
+function coinDevExited(c) {
+  return c.risk ? /Dev\s+Exited|Dev\s+Sell|Dev\s+Sold/i.test(c.risk) : false;
+}
+function coinDelta(c, md) {
+  const allFlags = c.contract && md.flagsByContract.has(c.contract)
+    ? md.flagsByContract.get(c.contract)
+    : md.flagsBySymbol.get(c.symbol) || [];
+  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
+  const called = getCalledBaseline(c.contract)?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
+  const latest = [...sortedFlags].reverse().find(f => f.mcap != null && f.mcap > 0);
+  const current = c.live?.mcap ?? latest?.mcap ?? null;
+  return current != null && called > 0 ? ((current - called) / called) * 100 : null;
+}
+function applyScanControls(coins, md) {
+  let out = [...coins];
+  if (scanControls.filter === "live") out = out.filter(c => c.live?.source === "dexscreener");
+  if (scanControls.filter === "dev-exited") out = out.filter(coinDevExited);
+  if (scanControls.filter === "watchlist") out = out.filter(c => isWatched(c.contract));
+
+  if (scanControls.sort === "up") {
+    out.sort((a, b) => (coinDelta(b, md) ?? -Infinity) - (coinDelta(a, md) ?? -Infinity));
+  } else if (scanControls.sort === "down") {
+    out.sort((a, b) => (coinDelta(a, md) ?? Infinity) - (coinDelta(b, md) ?? Infinity));
+  } else if (scanControls.sort === "newest") {
+    out.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
+  }
+  return out;
+}
+function renderWatchlist(md) {
+  const wrap = document.getElementById("watchlist");
+  const meta = document.getElementById("watch-meta");
+  if (!wrap || !meta) return;
+  const watched = getWatchlist();
+  if (!watched.size) {
+    meta.textContent = "// no saved tokens";
+    wrap.innerHTML = `<div class="feed-empty">// click + on any Market Scan card to track it here.</div>`;
+    return;
+  }
+  const rows = [...watched].map(contract => {
+    const flags = md.flagsByContract.get(contract) || [];
+    const newest = [...flags].sort((a, b) => (b.ts || "").localeCompare(a.ts || ""))[0];
+    if (!newest) return null;
+    const delta = coinDelta(newest, md);
+    const live = newest.live;
+    const chart = live?.url || newest.links?.chart || `https://dexscreener.com/solana/${contract}`;
+    return `
+      <a class="bb-coin" href="${escapeHTML(chart)}" target="_blank" rel="noopener">
+        <div class="rank">${delta == null ? "—" : (delta >= 0 ? "▲" : "▼")}</div>
+        <div class="body">
+          <div class="sym">$${escapeHTML(newest.symbol)}</div>
+          <div class="flow">
+            <span>${fmtCompact(getCalledBaseline(contract)?.mcap ?? newest.mcap)}</span>
+            <span class="arrow">→</span>
+            <span><b>${fmtCompact(live?.mcap ?? newest.mcap)}</b></span>
+          </div>
+          <div class="meta"><span>${live?.source === "dexscreener" ? "live" : "snapshot"}</span></div>
+        </div>
+        <div class="mult">${delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`}</div>
+      </a>
+    `;
+  }).filter(Boolean);
+  meta.textContent = `// ${rows.length} saved`;
+  wrap.innerHTML = rows.length ? `<div class="bb-grid">${rows.join("")}</div>` : `<div class="feed-empty">// saved tokens are not in the current feed window.</div>`;
+}
+
 function renderMarketScan(md) {
   const tiers = ["big","mid","low"];
   const targets = { big: 3, mid: 3, low: 4 };
   const seen = new Set();                 // ← cross-tier dedupe: lower tier wins
   const sections = tiers.map(t => {
+    if (scanControls.tier !== "all" && scanControls.tier !== t) return "";
     const target = targets[t];
     const tierPosts = md.posts.filter(p => p.tier === t);
     if (!tierPosts.length) return "";
@@ -1658,6 +1812,8 @@ function renderMarketScan(md) {
       if (uniqueCoins.length >= target) break;
     }
 
+    const visibleCoins = applyScanControls(uniqueCoins, md);
+    if (!visibleCoins.length) return "";
     const latestPost = tierPosts[0];
     return `
       <div class="tier-section">
@@ -1666,11 +1822,12 @@ function renderMarketScan(md) {
           <span>${tierBlurb[t]}</span>
           <span class="when">${(()=>{const d=new Date(latestPost.ts);const p=n=>String(n).padStart(2,'0');return `LAST SYNC ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;})()}</span>
         </div>
-        <div class="coin-grid">${uniqueCoins.map(c => coinCard(c, t, md)).join("")}</div>
+        <div class="coin-grid">${visibleCoins.map(c => coinCard(c, t, md)).join("")}</div>
       </div>
     `;
   }).join("");
   document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
+  renderWatchlist(md);
   const now = new Date();
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   // Show yesterday's date until the 02:00 UTC scan job, then switch to current date
@@ -1708,7 +1865,7 @@ function renderFlagHistory(md) {
   // Sort by gain descending
   wins.sort((a, b) => b.gain - a.gain);
   setDataStrip("tr-data-strip",
-    `// source: called baselines + rolling local ATH · tracked wins: <b>${wins.length}</b> · baselines: <b>${Object.keys(serverCalledBaselines).length ? "server/browser" : "browser"}</b>`
+    `// source: server called baselines + rolling local ATH · tracked wins: <b>${wins.length}</b> · baselines: <b>${Object.keys(serverCalledBaselines).length ? "server" : "current feed"}</b>`
   );
   const tbody = document.querySelector("#track tbody");
   tbody.innerHTML = wins.slice(0, 10).map(w => {
@@ -1895,6 +2052,7 @@ function renderWinnersLosers(md) {
 }
 
 function renderAllScanPanels(md) {
+  currentMarketData = md;
   renderMarketScan(md);
   renderWinnersLosers(md);
   renderFlagHistory(md);
@@ -2233,9 +2391,11 @@ function startBurpboardPolling() {
 function startFeedPolling(){
   pollFeed();
   pollIntelFeed();
+  pollHealth();
   if (FEED_URL) {
     setInterval(pollFeed, FEED_POLL_MS);
     setInterval(pollIntelFeed, INTEL_POLL_MS);
+    setInterval(pollHealth, FEED_POLL_MS);
   }
 }
 
@@ -2279,10 +2439,38 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+document.getElementById("tier-filter")?.addEventListener("change", (e) => {
+  scanControls.tier = e.target.value;
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+});
+document.getElementById("scan-filter")?.addEventListener("change", (e) => {
+  scanControls.filter = e.target.value;
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+});
+document.getElementById("scan-sort")?.addEventListener("change", (e) => {
+  scanControls.sort = e.target.value;
+  if (currentMarketData) renderAllScanPanels(currentMarketData);
+});
+document.getElementById("market-scan")?.addEventListener("click", (e) => {
+  const watch = e.target.closest("[data-watch]");
+  if (watch) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWatch(watch.dataset.watch);
+    return;
+  }
+  if (e.target.closest("[data-toggle-detail]")) {
+    e.target.closest(".coin")?.classList.toggle("expanded");
+  }
+});
+
 /* ---------- DATA FRESHNESS INDICATOR ---------- */
 let lastFeedUpdate = 0;
 let lastIntelUpdate = 0;
 let lastBurpUpdate = 0;
+let lastDexUpdate = 0;
+let lastHealthUpdate = 0;
+let botHealth = null;
 function updateFreshness() {
   const now = Date.now();
   const feedAge = now - lastFeedUpdate;
@@ -2300,6 +2488,43 @@ function updateFreshness() {
   }
 }
 setInterval(updateFreshness, 5000);
+
+function healthClass(ok, warn = false) {
+  return ok ? (warn ? "warn" : "") : "bad";
+}
+function renderHealth() {
+  const grid = document.getElementById("health-grid");
+  const meta = document.getElementById("health-meta");
+  if (!grid || !meta) return;
+  const now = Date.now();
+  const feedLive = lastFeedUpdate && now - lastFeedUpdate < 90_000;
+  const dexLive = lastDexUpdate && now - lastDexUpdate < 90_000;
+  const burpLive = lastBurpUpdate && now - lastBurpUpdate < 180_000;
+  const baselineCount = Object.keys(serverCalledBaselines).length;
+  const uptime = botHealth?.uptime_s ? fmtAge(Date.now() - botHealth.uptime_s * 1000) : "—";
+  grid.innerHTML = `
+    <div class="health-pill ${healthClass(feedLive)}"><span>feed</span><b>${feedLive ? "live" : "stale"}</b></div>
+    <div class="health-pill ${healthClass(dexLive)}"><span>dex</span><b>${dexLive ? "live" : "stale"}</b></div>
+    <div class="health-pill ${healthClass(!!baselineCount)}"><span>baselines</span><b>${baselineCount || "none"}</b></div>
+    <div class="health-pill ${healthClass(burpLive)}"><span>burpboard</span><b>${burpLive ? "live" : "stale"}</b></div>
+    <div class="health-pill ${healthClass(!!botHealth?.ready)}"><span>bot</span><b>${botHealth?.ready ? "ready" : "unknown"}</b></div>
+    <div class="health-pill"><span>uptime</span><b>${uptime}</b></div>
+  `;
+  meta.textContent = lastHealthUpdate ? `LAST CHECK ${new Date(lastHealthUpdate).toISOString().slice(11,19)}` : "// awaiting status";
+}
+async function pollHealth() {
+  if (!HEALTH_URL) { renderHealth(); return; }
+  try {
+    const r = await fetchWithTimeout(HEALTH_URL, { cache: "no-store" }, 6000);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    botHealth = await r.json();
+    lastHealthUpdate = Date.now();
+  } catch (err) {
+    console.warn("health poll failed:", err.message || err);
+  }
+  renderHealth();
+}
+setInterval(renderHealth, 5000);
 
 /* ---------- MAIN ---------- */
 (async function main(){

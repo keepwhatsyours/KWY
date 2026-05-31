@@ -85,6 +85,7 @@ The bot has to stay online to receive new messages. Pick one:
    - `DISCORD_TOKEN` — your bot token
    - `CHANNEL_ID` — the channel to mirror
    - `ALLOWED_ORIGIN` — your site's origin (or `*` while testing)
+   - `BASELINES_PATH` — optional persistent called-at cache path, e.g. `/opt/render/project/src/bot/data/called-baselines.json`
 5. Click **Create Web Service**.
 6. Once deployed, Render gives you a URL like `https://kwy-feed.onrender.com`.
    Your feed lives at `/feed` on that URL.
@@ -98,6 +99,7 @@ The bot has to stay online to receive new messages. Pick one:
 2. <https://railway.app/new> → **Deploy from GitHub** → pick the repo.
 3. Set **Root Directory** to `bot/`.
 4. Add env vars: `DISCORD_TOKEN`, `CHANNEL_ID`, `ALLOWED_ORIGIN=https://yoursite`.
+   Optionally set `BASELINES_PATH` to a mounted volume path for persistent called-at baselines.
 5. Railway gives you a public URL like `https://kwy-feed.up.railway.app`.
    Your feed lives at `/feed` on that URL.
 
