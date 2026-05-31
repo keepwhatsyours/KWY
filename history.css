@@ -128,13 +128,13 @@ h1{margin:4px 0 6px;font-size:clamp(28px,6vw,70px);line-height:1;letter-spacing:
 .data-strip b{color:var(--green);font-weight:700}
 .table-wrap{overflow:auto;border:1px solid rgba(0,255,65,.12);border-radius:3px}
 .scan-ledger-table{
-  width:100%;min-width:1190px;table-layout:fixed;border-collapse:collapse;font-size:12px;
+  width:100%;min-width:1240px;table-layout:fixed;border-collapse:collapse;font-size:12px;
 }
 .scan-ledger-table .col-time{width:105px}
 .scan-ledger-table .col-coin{width:125px}
 .scan-ledger-table .col-updown{width:85px}
-.scan-ledger-table .col-called{width:90px}
-.scan-ledger-table .col-current{width:95px}
+.scan-ledger-table .col-called{width:115px}
+.scan-ledger-table .col-current{width:120px}
 .scan-ledger-table .col-liq{width:95px}
 .scan-ledger-table .col-vol{width:90px}
 .scan-ledger-table .col-holders{width:80px}
