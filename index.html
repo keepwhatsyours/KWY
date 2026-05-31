@@ -1599,12 +1599,13 @@ function coinCard(c, tier, md) {
   const storedCall = storedCallLooksBad ? null : rawStoredCall;
   const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
   const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
-  // Banner: % change from THIS scan snapshot to CURRENT live mcap.
-  // The historical "called at" baseline is shown below the card separately.
-  const scanMcap = c.mcap ?? latestFlagWithMcap?.mcap ?? null;
-  const currentMcap = live?.mcap ?? null;
-  const mcapDelta   = (currentMcap != null && scanMcap != null && scanMcap > 0)
-                        ? ((currentMcap - scanMcap) / scanMcap) * 100 : null;
+  const calledSource = storedCall?.source === "bot" ? "server baseline" : storedCall ? "server baseline" : "current feed";
+
+  // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
+  const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
+  const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.mcap : null);
+  const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
+                        ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
 
   // short-term price changes — prefer live (5m/1h) over snapshot
   const ch5m = live?.change?.["5m"] ?? c.change["5m"];
@@ -1623,8 +1624,8 @@ function coinCard(c, tier, md) {
   if (dislocation >= 10) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
   const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
   const bannerTitle = mcapDelta == null
-    ? `Awaiting live mcap. Scan: ${fmtCompact(scanMcap)}. Source: ${sourceLabel}.`
-    : `Scan: ${fmtCompact(scanMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel}`;
+    ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
+    : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
   const watched = isWatched(c.contract);
 
   // Parse Discord swaps string: "10,681 (Buy/Sell: 1.22x)"
@@ -1664,7 +1665,7 @@ function coinCard(c, tier, md) {
       </div>
       ${anomalies.length ? `<div class="source-line"><span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span></div>` : ""}
       ${(() => {
-        // Banner: % change from this scan mcap to CURRENT live mcap.
+        // Banner: % change from Discord "called at" mcap to CURRENT live mcap.
         const delta = mcapDelta;
         if (delta == null) {
           return `<div class="mcap-banner loading" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
@@ -1674,7 +1675,7 @@ function coinCard(c, tier, md) {
         return `<div class="mcap-banner ${cls}" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">${txt}</div>`;
       })()}
       <div class="coin-detail">
-        <span>scan<b>${fmtCompact(scanMcap)}</b></span>
+        <span>called<b>${fmtCompact(calledMcap)}</b></span>
         <span>now<b>${fmtCompact(currentMcap)}</b></span>
         <span>change<b>${mcapDelta == null ? "—" : `${mcapDelta >= 0 ? "+" : ""}${mcapDelta.toFixed(1)}%`}</b></span>
         <span>source<b>${sourceLabel}</b></span>
@@ -1725,9 +1726,15 @@ function coinDevExited(c) {
   return c.risk ? /Dev\s+Exited|Dev\s+Sell|Dev\s+Sold/i.test(c.risk) : false;
 }
 function coinDelta(c, md) {
-  const scan = c.mcap ?? null;
-  const current = c.live?.mcap ?? null;
-  return current != null && scan > 0 ? ((current - scan) / scan) * 100 : null;
+  const allFlags = c.contract && md.flagsByContract.has(c.contract)
+    ? md.flagsByContract.get(c.contract)
+    : md.flagsBySymbol.get(c.symbol) || [];
+  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
+  const called = getCalledBaseline(c.contract)?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
+  const latest = [...sortedFlags].reverse().find(f => f.mcap != null && f.mcap > 0);
+  const current = c.live?.mcap ?? latest?.mcap ?? null;
+  return current != null && called > 0 ? ((current - called) / called) * 100 : null;
 }
 function applyScanControls(coins, md) {
   let out = [...coins];
