@@ -308,11 +308,10 @@
   .coin .sym{font-size:16px;color:var(--green);text-shadow:0 0 6px rgba(0,255,65,.4);letter-spacing:.04em}
   .coin .name{color:var(--green-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
   .coin .source-line{
-    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    display:flex;align-items:center;justify-content:flex-end;gap:8px;
     margin:2px 0 6px;font-size:9.5px;color:var(--green-dim);
     text-transform:uppercase;letter-spacing:.08em;
   }
-  .coin .source-line .src{color:#9ad99a}
   .coin .warns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
   .coin .warn{
     color:var(--amber);border:1px solid rgba(255,176,0,.35);
@@ -387,9 +386,12 @@
 
   /* live data indicators on coin cards */
   .live-dot{
-    display:inline-block;width:6px;height:6px;border-radius:50%;
+    display:inline-block;width:8px;height:8px;border-radius:50%;
     background:var(--green);box-shadow:0 0 6px var(--green);
     margin-left:4px;vertical-align:middle;animation:pulse 1.6s infinite;
+  }
+  .live-dot.offline{
+    background:var(--red);box-shadow:0 0 6px var(--red);
   }
   .coin .delta{
     font-size:10px;margin-left:4px;font-weight:600;
@@ -634,7 +636,6 @@
   <!-- MARKET SCAN — latest Big/Mid/Low Cap signals from Discord -->
   <div class="panel">
     <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
-    <div id="scan-data-strip" class="data-strip">// source: awaiting scan feed</div>
     <div id="market-scan"></div>
   </div>
 
@@ -1490,12 +1491,12 @@ function coinCard(c, tier, md) {
   const mcap  = live?.mcap  ?? c.mcap;
   const liq   = live?.liquidity ?? c.liquidity;
   const vol   = live?.volume24h ?? c.volume24h;
-  const isLive = !!live;
-  const liveTitle = live?.source === "dexscreener"
-    ? "live from Dexscreener"
+  const isLive = live?.source === "dexscreener";
+  const liveTitle = isLive
+    ? "LIVE: Dexscreener data loaded"
     : live?.source === "gmgn"
-      ? "live from GMGN fallback"
-      : "";
+      ? "DELAYED: GMGN fallback, Dexscreener unavailable"
+      : "NOT LIVE: Discord snapshot only";
 
   // Find ALL flags for this token across all scans (by contract, then symbol).
   const allFlags = c.contract && md.flagsByContract.has(c.contract)
@@ -1580,15 +1581,12 @@ function coinCard(c, tier, md) {
     <div class="coin tier-${tier} ${isLive?"is-live":""}">
       <div class="row1">
         <div>
-          <div class="sym">$${escapeHTML(c.symbol)} ${isLive?`<span class="live-dot" title="${liveTitle}"></span>`:""}</div>
+          <div class="sym">$${escapeHTML(c.symbol)} <span class="live-dot ${isLive ? "" : "offline"}" title="${escapeHTML(liveTitle)}"></span></div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
       </div>
-      <div class="source-line">
-        <span class="src">${sourceLabel}</span>
-        <span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span>
-      </div>
+      ${anomalies.length ? `<div class="source-line"><span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span></div>` : ""}
       ${(() => {
         // Banner: % change from Discord "called at" mcap to CURRENT live mcap.
         const delta = mcapDelta;
@@ -1673,13 +1671,6 @@ function renderMarketScan(md) {
     `;
   }).join("");
   document.getElementById("market-scan").innerHTML = sections || `<div class="feed-empty">// no Bubba Bot posts parsed yet…</div>`;
-  const liveCoins = md.posts.flatMap(p => p.coins).filter(c => c.live);
-  const dexCount = liveCoins.filter(c => c.live?.source === "dexscreener").length;
-  const fallbackCount = liveCoins.filter(c => c.live?.source === "gmgn").length;
-  const snapshotCount = md.totalFlags - liveCoins.length;
-  setDataStrip("scan-data-strip",
-    `// source: <b>${dexCount}</b> dexscreener live · <b>${fallbackCount}</b> gmgn fallback · <b class="${snapshotCount ? "warn" : ""}">${snapshotCount}</b> snapshot only · baselines: <b>${Object.keys(serverCalledBaselines).length ? "server" : "browser"}</b>`
-  );
   const now = new Date();
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   // Show yesterday's date until the 02:00 UTC scan job, then switch to current date
