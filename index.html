@@ -590,21 +590,6 @@
   .health-pill b{font-size:11px;color:var(--green);font-weight:700}
   .health-pill.warn b{color:var(--amber)}
   .health-pill.bad b{color:#ff5577}
-  .scan-controls{
-    display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;
-  }
-  .scan-controls select,
-  .scan-controls button{
-    background:rgba(0,255,65,.035);border:1px solid var(--green-deep);
-    color:var(--green);font-family:var(--mono);font-size:10.5px;
-    text-transform:uppercase;letter-spacing:.08em;border-radius:3px;
-    padding:5px 8px;min-height:28px;
-  }
-  .scan-controls button{cursor:pointer}
-  .scan-controls button.active{
-    background:var(--green);color:#000;border-color:var(--green);
-    box-shadow:0 0 10px rgba(0,255,65,.25);
-  }
   .watch-btn{
     margin-left:6px;background:rgba(0,255,65,.035);
     border:1px solid var(--green-deep);color:var(--green-dim);
@@ -661,7 +646,6 @@
     .coin .kvs{grid-template-columns:1fr;gap:4px}
     .coin .kvs.primary{grid-template-columns:1fr 1fr}
     .coin-detail{grid-template-columns:1fr 1fr}
-    .scan-controls select,.scan-controls button{flex:1;min-width:120px}
     .data-strip{display:block;line-height:1.55}
   }
 </style>
@@ -712,26 +696,6 @@
   <!-- MARKET SCAN — latest Big/Mid/Low Cap signals from Discord -->
   <div class="panel">
     <h2>MARKET SCAN <span class="meta" id="scan-meta">// awaiting feed…</span></h2>
-    <div class="scan-controls">
-      <select id="tier-filter" title="filter by tier">
-        <option value="all">all tiers</option>
-        <option value="big">big cap</option>
-        <option value="mid">mid cap</option>
-        <option value="low">low cap</option>
-      </select>
-      <select id="scan-filter" title="filter cards">
-        <option value="all">all coins</option>
-        <option value="live">live only</option>
-        <option value="dev-exited">dev exited</option>
-        <option value="watchlist">watchlist</option>
-      </select>
-      <select id="scan-sort" title="sort cards">
-        <option value="default">scan order</option>
-        <option value="up">highest up</option>
-        <option value="down">biggest down</option>
-        <option value="newest">newest</option>
-      </select>
-    </div>
     <div id="market-scan"></div>
   </div>
 
@@ -2599,18 +2563,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-document.getElementById("tier-filter")?.addEventListener("change", (e) => {
-  scanControls.tier = e.target.value;
-  if (currentMarketData) renderAllScanPanels(currentMarketData);
-});
-document.getElementById("scan-filter")?.addEventListener("change", (e) => {
-  scanControls.filter = e.target.value;
-  if (currentMarketData) renderAllScanPanels(currentMarketData);
-});
-document.getElementById("scan-sort")?.addEventListener("change", (e) => {
-  scanControls.sort = e.target.value;
-  if (currentMarketData) renderAllScanPanels(currentMarketData);
-});
 document.getElementById("market-scan")?.addEventListener("click", (e) => {
   const watch = e.target.closest("[data-watch]");
   if (watch) {
