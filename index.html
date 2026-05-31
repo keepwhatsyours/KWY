@@ -1330,11 +1330,19 @@ function coinCard(c, tier, md) {
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = !!live;
 
-  // CALLED AT = this scan's own timestamp and snapshot mcap (the post that produced this card).
-  // Deduplication already ensures `c` is the most recent occurrence across tiers.
-  const calledTs   = c.ts   ?? null;
-  const calledMcap = c.mcap ?? null;
-  const calledPrice = c.price ?? null;
+  // Find the MOST RECENT flag for this token across all scans (by contract, then symbol).
+  // Deduplication can pass an older coin object to coinCard, so we explicitly
+  // look up the latest flag to ensure "called at" always reflects the latest scan.
+  const allFlags = c.contract && md.flagsByContract.has(c.contract)
+    ? md.flagsByContract.get(c.contract)
+    : md.flagsBySymbol.get(c.symbol) || [];
+  const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  const latestFlag = sortedFlags[sortedFlags.length - 1];
+
+  // CALLED AT = most recent flag across all scans (never the first-ever flag)
+  const calledTs   = latestFlag?.ts   ?? c.ts   ?? null;
+  const calledMcap = latestFlag?.mcap ?? c.mcap ?? null;
+  const calledPrice = latestFlag?.price ?? c.price ?? null;
 
   // Banner: live mcap vs this scan's snapshot mcap, or fallback to embed's 5m change
   const mcapDelta   = (mcap != null && calledMcap != null && calledMcap > 0)
