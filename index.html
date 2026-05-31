@@ -1330,21 +1330,21 @@ function coinCard(c, tier, md) {
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = !!live;
 
-  // Find the LATEST flag for this token across all scans (by contract, then symbol).
-  // "Called at" must show the MOST RECENT scan — the latest time we flagged it.
+  // Find ALL flags for this token across all scans (by contract, then symbol).
   const allFlags = c.contract && md.flagsByContract.has(c.contract)
     ? md.flagsByContract.get(c.contract)
     : md.flagsBySymbol.get(c.symbol) || [];
   const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
+  const firstFlag  = sortedFlags[0];
   const latestFlag = sortedFlags[sortedFlags.length - 1];
 
-  // CALLED AT = most recent flag (the latest scan)
+  // CALLED AT = latest flag (most recent scan) so the baseline refreshes each scan.
   const calledTs   = latestFlag?.ts   ?? c.ts   ?? null;
   const calledMcap = latestFlag?.mcap ?? c.mcap ?? null;
   const calledPrice = latestFlag?.price ?? c.price ?? null;
 
-  // Banner: % change from MOST RECENT flag mcap to CURRENT live mcap
-  const currentMcap = live?.mcap ?? latestFlag?.mcap ?? c.mcap ?? null;
+  // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
+  const currentMcap = live?.mcap ?? c.mcap ?? null;
   const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
                         ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
   const priceDelta  = (price != null && calledPrice != null && calledPrice > 0)
