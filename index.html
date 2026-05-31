@@ -1044,6 +1044,40 @@ function updateATH(contract, liveMcap) {
   }
 }
 
+/* ---------- DEXSCREENER "CALLED AT" BASELINE TRACKER ---------- */
+// Stores the FIRST live MCAP we ever see from Dexscreener per contract.
+// This is the ONLY accurate "called at" baseline — it ignores Discord embeds.
+const CA_KEY = "kwy-called-at-v1";
+const CA_RESET_KEY = "kwy-called-at-reset-v1";
+function maybeResetCalledAt() {
+  const lastReset = localStorage.getItem(CA_RESET_KEY);
+  if (lastReset !== RESET_DATE) {
+    localStorage.removeItem(CA_KEY);
+    localStorage.setItem(CA_RESET_KEY, RESET_DATE);
+  }
+}
+maybeResetCalledAt();
+function getStoredCalledAt() {
+  try {
+    const raw = localStorage.getItem(CA_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function setStoredCalledAt(map) {
+  try { localStorage.setItem(CA_KEY, JSON.stringify(map)); } catch {}
+}
+function getCalledAt(contract) {
+  return getStoredCalledAt()[contract] ?? null;
+}
+function updateCalledAt(contract, liveMcap) {
+  if (!contract || liveMcap == null || isNaN(liveMcap)) return;
+  const map = getStoredCalledAt();
+  if (map[contract] == null) {
+    map[contract] = liveMcap;
+    setStoredCalledAt(map);
+  }
+}
+
 // mutate md.posts coins in place: attach `.live` from dexscreener; also store
 // md.live as a global Map<address, livePair> for any other consumers.
 async function enrichWithLive(md) {
@@ -1067,6 +1101,8 @@ async function enrichWithLive(md) {
         coin.live = dexToLive(pair);
         // Update rolling ATH with live mcap
         updateATH(coin.contract, coin.live?.mcap);
+        // Snapshot first-seen Dexscreener mcap as the "called at" baseline
+        updateCalledAt(coin.contract, coin.live?.mcap);
       }
     }
   }
@@ -1338,9 +1374,10 @@ function coinCard(c, tier, md) {
   const firstFlag  = sortedFlags[0];
   const latestFlag = sortedFlags[sortedFlags.length - 1];
 
-  // CALLED AT = latest flag (most recent scan) so the baseline refreshes each scan.
+  // CALLED AT = first-seen Dexscreener mcap (stored in localStorage).
+  // Falls back to latest Discord flag mcap only if we have no on-chain data yet.
   const calledTs   = latestFlag?.ts   ?? c.ts   ?? null;
-  const calledMcap = latestFlag?.mcap ?? c.mcap ?? null;
+  const calledMcap = getCalledAt(c.contract) ?? latestFlag?.mcap ?? c.mcap ?? null;
   const calledPrice = latestFlag?.price ?? c.price ?? null;
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
