@@ -40,6 +40,27 @@ function parseBaselineMcap(v) {
   return n;
 }
 
+const MCAP_PRICE_CORRECTION_RATIO = 25;
+function mcapRatio(a, b) {
+  if (a == null || b == null || a <= 0 || b <= 0) return null;
+  return Math.max(a, b) / Math.min(a, b);
+}
+function normalizeSnapshotMcap(snapshot, live) {
+  const raw = Number(snapshot?.mcap);
+  const rawMcap = Number.isFinite(raw) && raw > 0 ? raw : null;
+  const price = Number(snapshot?.price);
+  const liveMcap = Number(live?.mcap);
+  const livePrice = Number(live?.price);
+  const supply = Number.isFinite(liveMcap) && Number.isFinite(livePrice) && liveMcap > 0 && livePrice > 0
+    ? liveMcap / livePrice
+    : null;
+  const priceMcap = Number.isFinite(price) && price > 0 && supply ? price * supply : null;
+  const ratio = rawMcap && priceMcap ? mcapRatio(rawMcap, priceMcap) : null;
+  return ratio && ratio >= MCAP_PRICE_CORRECTION_RATIO
+    ? { mcap: priceMcap, rawMcap, corrected: true }
+    : { mcap: rawMcap ?? priceMcap ?? null, rawMcap, corrected: false };
+}
+
 function parseBubbaPost(msg) {
   if (msg.embeds && msg.embeds.length >= 2) {
     const header = msg.embeds[0];
@@ -97,6 +118,10 @@ const sample = {
 
 const parsed = parseBubbaPost(sample);
 const coin = parsed?.coins?.[0];
+const bullOutlier = normalizeSnapshotMcap(
+  { mcap: 570260000, price: 0.0039233 },
+  { mcap: 3463821, price: 0.003463821 },
+);
 const near = (a, b) => Math.abs(a - b) < 0.001;
 const checks = [
   ['tier', parsed?.tier === 'big'],
@@ -109,6 +134,7 @@ const checks = [
   ['health preserved', /Bundler/.test(coin?.health || '')],
   ['baseline mcap M suffix', near(parseBaselineMcap('$4.14M'), 4140000)],
   ['baseline mcap K suffix', near(parseBaselineMcap('$277.7K'), 277700)],
+  ['outlier mcap corrected from price', bullOutlier.corrected && Math.abs(bullOutlier.mcap - 3923300) < 1],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);

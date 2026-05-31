@@ -1553,6 +1553,115 @@ function parseWalletHealth(s) {
   };
 }
 
+const MCAP_PRICE_CORRECTION_RATIO = 25;
+function mcapRatio(a, b) {
+  if (a == null || b == null || a <= 0 || b <= 0) return null;
+  return Math.max(a, b) / Math.min(a, b);
+}
+function impliedSupplyFromLive(live) {
+  const mcap = Number(live?.mcap);
+  const price = Number(live?.price);
+  if (!Number.isFinite(mcap) || !Number.isFinite(price) || mcap <= 0 || price <= 0) return null;
+  return mcap / price;
+}
+function normalizeSnapshotMcap(snapshot, live) {
+  const raw = Number(snapshot?.mcap);
+  const rawMcap = Number.isFinite(raw) && raw > 0 ? raw : null;
+  const price = Number(snapshot?.price);
+  const supply = impliedSupplyFromLive(live);
+  const priceMcap = Number.isFinite(price) && price > 0 && supply ? price * supply : null;
+  const ratio = rawMcap && priceMcap ? mcapRatio(rawMcap, priceMcap) : null;
+
+  if (ratio && ratio >= MCAP_PRICE_CORRECTION_RATIO) {
+    return {
+      mcap: priceMcap,
+      rawMcap,
+      corrected: true,
+      correction: "price-implied",
+    };
+  }
+
+  return {
+    mcap: rawMcap ?? priceMcap ?? null,
+    rawMcap,
+    corrected: false,
+    correction: null,
+  };
+}
+function normalizeFlagMcap(flag, live) {
+  if (!flag) return null;
+  const normalized = normalizeSnapshotMcap(flag, live);
+  if (normalized.mcap == null || normalized.mcap <= 0) return null;
+  return {
+    ...flag,
+    normalizedMcap: normalized.mcap,
+    mcapCorrection: normalized,
+  };
+}
+function firstNormalizedFlagWithMcap(flags, live) {
+  for (const flag of flags) {
+    const normalized = normalizeFlagMcap(flag, live);
+    if (normalized?.normalizedMcap > 0) return normalized;
+  }
+  return null;
+}
+function latestNormalizedFlagWithMcap(flags, live) {
+  for (let i = flags.length - 1; i >= 0; i--) {
+    const normalized = normalizeFlagMcap(flags[i], live);
+    if (normalized?.normalizedMcap > 0) return normalized;
+  }
+  return null;
+}
+function resolveCalledBaseline(contract, sortedFlags, live, fallbackCoin = null) {
+  const stored = contract ? getCalledBaseline(contract) : null;
+  const firstFlag = sortedFlags[0] ?? fallbackCoin;
+  const matchingStoredFlag = stored?.ts
+    ? sortedFlags.find(f => f.ts === stored.ts)
+    : null;
+
+  if (stored?.mcap) {
+    const normalized = normalizeSnapshotMcap({
+      ...matchingStoredFlag,
+      mcap: stored.mcap,
+      price: matchingStoredFlag?.price,
+    }, live);
+    if (normalized.mcap != null && normalized.mcap > 0) {
+      return {
+        mcap: normalized.mcap,
+        ts: stored.ts ?? matchingStoredFlag?.ts ?? firstFlag?.ts ?? fallbackCoin?.ts ?? null,
+        source: normalized.corrected ? "server baseline corrected from price" : "server baseline",
+        rawMcap: normalized.rawMcap,
+        corrected: normalized.corrected,
+        correction: normalized.correction,
+      };
+    }
+  }
+
+  const firstWithMcap = firstNormalizedFlagWithMcap(sortedFlags, live);
+  if (firstWithMcap) {
+    return {
+      mcap: firstWithMcap.normalizedMcap,
+      ts: firstWithMcap.ts ?? fallbackCoin?.ts ?? null,
+      source: firstWithMcap.mcapCorrection?.corrected ? "feed baseline corrected from price" : "current feed",
+      rawMcap: firstWithMcap.mcapCorrection?.rawMcap,
+      corrected: !!firstWithMcap.mcapCorrection?.corrected,
+      correction: firstWithMcap.mcapCorrection?.correction ?? null,
+    };
+  }
+
+  const fallback = normalizeSnapshotMcap(fallbackCoin, live);
+  return fallback.mcap != null && fallback.mcap > 0
+    ? {
+        mcap: fallback.mcap,
+        ts: fallbackCoin?.ts ?? null,
+        source: fallback.corrected ? "current card corrected from price" : "current card",
+        rawMcap: fallback.rawMcap,
+        corrected: fallback.corrected,
+        correction: fallback.correction,
+      }
+    : null;
+}
+
 function renderScanStats(md) {
   const top3 = md.topFlagged.slice(0,3).map(([sym,n])=>`${sym}<span style="color:var(--green-dim)">·${n}</span>`).join("&nbsp;&nbsp;") || "—";
   document.getElementById("stats").innerHTML = `
@@ -1567,7 +1676,8 @@ function renderScanStats(md) {
 function coinCard(c, tier, md) {
   // Prefer live data when available; fall back to Bubba Bot snapshot.
   const live = c.live;
-  const mcap  = live?.mcap  ?? c.mcap;
+  const normalizedCardMcap = normalizeSnapshotMcap(c, live);
+  const mcap  = live?.mcap  ?? normalizedCardMcap.mcap ?? c.mcap;
   const liq   = live?.liquidity ?? c.liquidity;
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = live?.source === "dexscreener";
@@ -1582,28 +1692,19 @@ function coinCard(c, tier, md) {
     ? md.flagsByContract.get(c.contract)
     : md.flagsBySymbol.get(c.symbol) || [];
   const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-  const firstFlag  = sortedFlags[0];
-  const latestFlagWithMcap = [...sortedFlags].reverse().find(f => f.mcap != null && f.mcap > 0);
+  const latestFlagWithMcap = latestNormalizedFlagWithMcap(sortedFlags, live);
 
   // CALLED AT = first flag (original call) for repeated coins, only flag for new coins.
-  // The latest Discord scan for repeated coins often has stale/bad mcap data;
-  // the first flag is the true baseline that traders track from.
-  // IMPORTANT: search for the first flag that actually has valid mcap data,
-  // rather than just sortedFlags[0] which might be missing it.
-  const rawStoredCall = c.contract ? getCalledBaseline(c.contract) : null;
-  const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
-  const baselineCheckMcap = firstFlagWithMcap?.mcap ?? c.mcap ?? live?.mcap ?? null;
-  const storedCallLooksBad = rawStoredCall?.mcap && baselineCheckMcap
-    && rawStoredCall.mcap < 1000
-    && baselineCheckMcap >= 25000;
-  const storedCall = storedCallLooksBad ? null : rawStoredCall;
-  const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
-  const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
-  const calledSource = storedCall?.source === "bot" ? "server baseline" : storedCall ? "server baseline" : "current feed";
+  // Some bot snapshots have malformed MCAP while price is sane; normalize those
+  // against the live implied supply before using them for UP/DOWN math.
+  const called = resolveCalledBaseline(c.contract, sortedFlags, live, c);
+  const calledTs = called?.ts ?? null;
+  const calledMcap = called?.mcap ?? null;
+  const calledSource = called?.source ?? "current feed";
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
-  const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.mcap : null);
+  const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.normalizedMcap : null);
   const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
                         ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
 
@@ -1619,9 +1720,8 @@ function coinCard(c, tier, md) {
     : null;
   const health = parseWalletHealth(c.health);
   const anomalies = [];
-  const dislocation = live?.mcap && c.mcap ? Math.max(live.mcap, c.mcap) / Math.max(1, Math.min(live.mcap, c.mcap)) : 1;
-  if (storedCallLooksBad) anomalies.push({ label: "bad baseline ignored", bad: true, title: `Rejected baseline ${fmtCompact(rawStoredCall.mcap)} for ${fmtCompact(baselineCheckMcap)} scan mcap` });
-  if (dislocation >= 10) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
+  const dislocation = live?.mcap && normalizedCardMcap.mcap ? mcapRatio(live.mcap, normalizedCardMcap.mcap) : 1;
+  if (dislocation >= 10 && !normalizedCardMcap.corrected) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
   const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
   const bannerTitle = mcapDelta == null
     ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
@@ -1730,11 +1830,10 @@ function coinDelta(c, md) {
     ? md.flagsByContract.get(c.contract)
     : md.flagsBySymbol.get(c.symbol) || [];
   const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-  const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
-  const called = getCalledBaseline(c.contract)?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
-  const latest = [...sortedFlags].reverse().find(f => f.mcap != null && f.mcap > 0);
-  const current = c.live?.mcap ?? latest?.mcap ?? null;
-  return current != null && called > 0 ? ((current - called) / called) * 100 : null;
+  const called = resolveCalledBaseline(c.contract, sortedFlags, c.live, c);
+  const latest = latestNormalizedFlagWithMcap(sortedFlags, c.live);
+  const current = c.live?.mcap ?? latest?.normalizedMcap ?? null;
+  return current != null && called?.mcap > 0 ? ((current - called.mcap) / called.mcap) * 100 : null;
 }
 function applyScanControls(coins, md) {
   let out = [...coins];
@@ -1763,10 +1862,13 @@ function renderWatchlist(md) {
   }
   const rows = [...watched].map(contract => {
     const flags = md.flagsByContract.get(contract) || [];
-    const newest = [...flags].sort((a, b) => (b.ts || "").localeCompare(a.ts || ""))[0];
+    const sorted = [...flags].sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
+    const newest = sorted[sorted.length - 1];
     if (!newest) return null;
     const delta = coinDelta(newest, md);
     const live = newest.live;
+    const called = resolveCalledBaseline(contract, sorted, live, newest);
+    const current = live?.mcap ?? latestNormalizedFlagWithMcap(sorted, live)?.normalizedMcap ?? newest.mcap;
     const chart = live?.url || newest.links?.chart || `https://dexscreener.com/solana/${contract}`;
     return `
       <a class="bb-coin" href="${escapeHTML(chart)}" target="_blank" rel="noopener">
@@ -1774,9 +1876,9 @@ function renderWatchlist(md) {
         <div class="body">
           <div class="sym">$${escapeHTML(newest.symbol)}</div>
           <div class="flow">
-            <span>${fmtCompact(getCalledBaseline(contract)?.mcap ?? newest.mcap)}</span>
+            <span>${fmtCompact(called?.mcap ?? newest.mcap)}</span>
             <span class="arrow">→</span>
-            <span><b>${fmtCompact(live?.mcap ?? newest.mcap)}</b></span>
+            <span><b>${fmtCompact(current)}</b></span>
           </div>
           <div class="meta"><span>${live?.source === "dexscreener" ? "live" : "snapshot"}</span></div>
         </div>
@@ -1841,21 +1943,22 @@ function renderFlagHistory(md) {
   for (const [contract, flags] of md.flagsByContract) {
     if (!flags.length) continue;
     const sorted = [...flags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
-    const first = sorted[0];
     const newest = sorted[sorted.length - 1];
+    const called = resolveCalledBaseline(contract, sorted, newest?.live, newest);
     const ath = contract ? getATH(contract) : null;
-    const current = ath ?? newest?.live?.mcap ?? newest?.mcap ?? null;
-    if (!first.mcap || !current || current <= first.mcap) continue;
-    const gain = ((current - first.mcap) / first.mcap) * 100;
-    const ts = new Date(first.ts);
+    const newestSnapshot = latestNormalizedFlagWithMcap(sorted, newest?.live);
+    const current = ath ?? newest?.live?.mcap ?? newestSnapshot?.normalizedMcap ?? null;
+    if (!called?.mcap || !current || current <= called.mcap) continue;
+    const gain = ((current - called.mcap) / called.mcap) * 100;
+    const ts = new Date(called.ts ?? newest?.ts);
     const pad = n => String(n).padStart(2, '0');
     const t = `${pad(ts.getMonth()+1)}/${pad(ts.getDate())}/${ts.getFullYear()} @ ${pad(ts.getHours())}:${pad(ts.getMinutes())}`;
     wins.push({
-      symbol: first.symbol,
-      name: first.name || '',
-      tier: first.tier,
+      symbol: newest.symbol,
+      name: newest.name || '',
+      tier: newest.tier,
       contract: contract,
-      calledAt: first.mcap,
+      calledAt: called.mcap,
       current: current,
       gain,
       when: t,
@@ -1904,26 +2007,26 @@ function computePerformance(md) {
     if (!todayFlags.length) continue;
 
     const sortedAsc = [...todayFlags].sort((a,b) => a.ts < b.ts ? -1 : 1);
-    const firstWith = sortedAsc.find(f => f.mcap != null && f.mcap > 0);
+    const firstWith = firstNormalizedFlagWithMcap(sortedAsc, sortedAsc[sortedAsc.length - 1]?.live);
     if (!firstWith) continue;
 
     // live MCAP — same object reference across posts, pick newest of today's flags
     const newest = sortedAsc[sortedAsc.length - 1];
     const liveMcap  = newest?.live?.mcap  ?? null;
     const livePrice = newest?.live?.price ?? null;
-    const lastSnapshotMcap = [...sortedAsc].reverse().find(f => f.mcap != null && f.mcap > 0)?.mcap;
+    const lastSnapshotMcap = latestNormalizedFlagWithMcap(sortedAsc, newest?.live)?.normalizedMcap;
 
     const current = liveMcap ?? lastSnapshotMcap;
     if (current == null) continue;
     // need a real delta — skip if entry==current with only one snapshot and no live
-    if (current === firstWith.mcap && todayFlags.length === 1 && liveMcap == null) continue;
+    if (current === firstWith.normalizedMcap && todayFlags.length === 1 && liveMcap == null) continue;
 
-    const pct = ((current - firstWith.mcap) / firstWith.mcap) * 100;
+    const pct = ((current - firstWith.normalizedMcap) / firstWith.normalizedMcap) * 100;
     out.push({
       symbol,
       contract,
       name: newest.name || firstWith.name || "",
-      entry:   firstWith.mcap,
+      entry:   firstWith.normalizedMcap,
       current,
       entryPrice:   firstWith.price ?? null,
       currentPrice: livePrice ?? newest.price ?? null,
