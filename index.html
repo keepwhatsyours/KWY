@@ -1338,12 +1338,12 @@ function coinCard(c, tier, md) {
   const firstFlag  = sortedFlags[0];
   const latestFlag = sortedFlags[sortedFlags.length - 1];
 
-  // CALLED AT = the mcap from the Discord post (latest scan).
-  // Current MCAP = live Dexscreener value.
-  // Banner delta = live mcap vs Discord "called at" mcap.
-  const calledTs   = latestFlag?.ts   ?? c.ts   ?? null;
-  const calledMcap = latestFlag?.mcap ?? c.mcap ?? null;
-  const calledPrice = latestFlag?.price ?? c.price ?? null;
+  // CALLED AT = first flag (original call) for repeated coins, only flag for new coins.
+  // The latest Discord scan for repeated coins often has stale/bad mcap data;
+  // the first flag is the true baseline that traders track from.
+  const calledTs   = firstFlag?.ts   ?? c.ts   ?? null;
+  const calledMcap = firstFlag?.mcap ?? c.mcap ?? null;
+  const calledPrice = firstFlag?.price ?? c.price ?? null;
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const currentMcap = live?.mcap ?? c.mcap ?? null;
