@@ -986,27 +986,25 @@ function gmgnToLive(data) {
   const price = parseFloat(data.price?.price || data.price || 0);
   const supply = parseFloat(data.circulating_supply || data.total_supply || 0);
   const mcap = price * supply;
-  // GMGN age: try pool creation first, then token creation, then open timestamp
-  const poolTs = data.pool?.creation_timestamp;
-  const tokenTs = data.creation_timestamp;
-  const openTs = data.open_timestamp;
-  const createdAt = poolTs && poolTs > 0 ? poolTs * 1000
-                  : tokenTs && tokenTs > 0 ? tokenTs * 1000
-                  : openTs && openTs > 0 ? openTs * 1000
-                  : null;
+  const changeFrom = previous => {
+    const prev = parseFloat(previous || 0);
+    return prev ? ((price - prev) / prev) * 100 : null;
+  };
+
   return {
+    source: "gmgn",
     price: price || null,
     mcap: mcap || null,
     liquidity: parseFloat(data.liquidity || data.pool?.liquidity || 0) || null,
     volume24h: parseFloat(data.price?.volume_24h || data.price?.volume24h || 0) || null,
     change: {
-      "5m": parseFloat(data.price?.price_5m || 0) ? ((price - parseFloat(data.price?.price_5m)) / parseFloat(data.price?.price_5m)) * 100 : null,
-      "1h": parseFloat(data.price?.price_1h || 0) ? ((price - parseFloat(data.price?.price_1h)) / parseFloat(data.price?.price_1h)) * 100 : null,
-      "24h": parseFloat(data.price?.price_24h || 0) ? ((price - parseFloat(data.price?.price_24h)) / parseFloat(data.price?.price_24h)) * 100 : null,
+      "5m": changeFrom(data.price?.price_5m),
+      "1h": changeFrom(data.price?.price_1h),
+      "24h": changeFrom(data.price?.price_24h),
     },
     dex: data.pool?.exchange || null,
     url: data.link?.gmgn || null,
-    pairCreatedAt: createdAt,
+    pairCreatedAt: null,
   };
 }
 
@@ -1044,6 +1042,7 @@ async function fetchDexscreenerData(addresses) {
 function dexToLive(pair) {
   if (!pair) return null;
   return {
+    source: "dexscreener",
     price:     pair.priceUsd != null ? parseFloat(pair.priceUsd) : null,
     mcap:      pair.marketCap ?? pair.fdv ?? null,
     liquidity: pair.liquidity?.usd ?? null,
@@ -1113,7 +1112,7 @@ function updateCalledBaseline(contract, flag) {
   const map = getStoredCalls();
   const prev = map[contract];
   if (!prev || new Date(flag.ts).getTime() < new Date(prev.ts).getTime()) {
-    map[contract] = { mcap: flag.mcap, price: flag.price ?? null, ts: flag.ts };
+    map[contract] = { mcap: flag.mcap, ts: flag.ts };
     setStoredCalls(map);
   }
 }
@@ -1134,7 +1133,7 @@ async function enrichWithLive(md) {
   const dexPairs = await fetchDexscreenerData(addresses);
   const missing = addresses.filter(addr => !dexPairs.has(addr));
   const gmgnPairs = missing.length ? await fetchGMGNData(missing) : new Map();
-  md.live = dexPairs;
+  md.live = new Map([...dexPairs, ...gmgnPairs]);
 
   for (const post of md.posts) {
     for (const coin of post.coins) {
@@ -1407,11 +1406,15 @@ function renderScanStats(md) {
 function coinCard(c, tier, md) {
   // Prefer live data when available; fall back to Bubba Bot snapshot.
   const live = c.live;
-  const price = live?.price ?? c.price;
   const mcap  = live?.mcap  ?? c.mcap;
   const liq   = live?.liquidity ?? c.liquidity;
   const vol   = live?.volume24h ?? c.volume24h;
   const isLive = !!live;
+  const liveTitle = live?.source === "dexscreener"
+    ? "live from Dexscreener"
+    : live?.source === "gmgn"
+      ? "live from GMGN fallback"
+      : "";
 
   // Find ALL flags for this token across all scans (by contract, then symbol).
   const allFlags = c.contract && md.flagsByContract.has(c.contract)
@@ -1419,7 +1422,6 @@ function coinCard(c, tier, md) {
     : md.flagsBySymbol.get(c.symbol) || [];
   const sortedFlags = [...allFlags].sort((a, b) => (a.ts || '').localeCompare(b.ts || ''));
   const firstFlag  = sortedFlags[0];
-  const latestFlag = sortedFlags[sortedFlags.length - 1];
   const latestFlagWithMcap = [...sortedFlags].reverse().find(f => f.mcap != null && f.mcap > 0);
 
   // CALLED AT = first flag (original call) for repeated coins, only flag for new coins.
@@ -1429,20 +1431,14 @@ function coinCard(c, tier, md) {
   // rather than just sortedFlags[0] which might be missing it.
   const storedCall = c.contract ? getCalledBaseline(c.contract) : null;
   const firstFlagWithMcap = sortedFlags.find(f => f.mcap != null && f.mcap > 0);
-  const firstFlagWithPrice = sortedFlags.find(f => f.price != null && f.price > 0);
   const calledTs   = storedCall?.ts ?? firstFlagWithMcap?.ts ?? firstFlag?.ts ?? c.ts ?? null;
   const calledMcap = storedCall?.mcap ?? firstFlagWithMcap?.mcap ?? c.mcap ?? null;
-  const calledPrice = storedCall?.price ?? firstFlagWithPrice?.price ?? c.price ?? null;
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
   const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.mcap : null);
   const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
                         ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
-  const priceDelta  = (price != null && calledPrice != null && calledPrice > 0)
-                        ? ((price - calledPrice) / calledPrice) * 100 : null;
-  const deltaSpan = v => v == null ? "" :
-    `<span class="delta ${v>=0?"pos":"neg"}">${v>=0?"▲ +":"▼ "}${Math.abs(v).toFixed(1)}%</span>`;
 
   // short-term price changes — prefer live (5m/1h) over snapshot
   const ch5m = live?.change?.["5m"] ?? c.change["5m"];
@@ -1450,8 +1446,10 @@ function coinCard(c, tier, md) {
   const ch24 = live?.change?.["24h"];
   const chSpan = (lbl,v) => v==null ? "" : `<span class="${v>=0?"pos":"neg"}">${lbl}: ${v>=0?"+":""}${v.toFixed(1)}%</span>`;
 
-  // Age from pair creation timestamp (Dexscreener)
-  const ageMs = live?.pairCreatedAt ? new Date(live.pairCreatedAt).getTime() : null;
+  // Age must come from Dexscreener's pair creation timestamp.
+  const ageMs = live?.source === "dexscreener" && live?.pairCreatedAt
+    ? new Date(live.pairCreatedAt).getTime()
+    : null;
 
   // Parse Discord swaps string: "10,681 (Buy/Sell: 1.22x)"
   let swapCount = null, swapRatio = null;
@@ -1480,7 +1478,7 @@ function coinCard(c, tier, md) {
     <div class="coin tier-${tier} ${isLive?"is-live":""}">
       <div class="row1">
         <div>
-          <div class="sym">$${escapeHTML(c.symbol)} ${isLive?'<span class="live-dot" title="live from Dexscreener"></span>':""}</div>
+          <div class="sym">$${escapeHTML(c.symbol)} ${isLive?`<span class="live-dot" title="${liveTitle}"></span>`:""}</div>
           ${c.name ? `<div class="name">${escapeHTML(c.name)}</div>` : ""}
         </div>
         ${c.score != null ? `<div class="score ${scoreClass(Math.min(100, c.score))}" title="Score from last scan">${Math.min(100, Math.round(c.score))}</div>` : ""}
