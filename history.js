@@ -4,7 +4,10 @@
   const BASELINE_URL = FEED_URL.replace(/\/feed$/, "/baselines");
   const DEX_CHAIN = "solana";
   const OUTLIER_RATIO = 25;
-  const WATCHLIST_KEY = "kwy-watchlist-v1";
+  const HISTORY_RESET_DATE = "2026-06-01";
+  const HISTORY_RESET_ISO = new Date(`${HISTORY_RESET_DATE}T00:00:00Z`).toISOString();
+  const HISTORY_RESET_MS = Date.parse(HISTORY_RESET_ISO);
+  const WATCHLIST_KEY = "kwy-watchlist-v2";
 
   let rows = [];
   let allRows = [];
@@ -182,6 +185,11 @@
       const data = await r.json();
       return Array.isArray(data) ? data : data.messages || [];
     }
+  }
+
+  function isFreshMessage(msg) {
+    const time = Date.parse(msg?.timestamp || "");
+    return Number.isFinite(time) && time >= HISTORY_RESET_MS;
   }
 
   async function fetchDexscreener(addresses) {
@@ -482,7 +490,7 @@
     $("status").innerHTML = `// loading ${escapeHTML(cfg.label)} feed...`;
     try {
       await fetchBaselines();
-      const messages = await fetchFeed();
+      const messages = (await fetchFeed()).filter(isFreshMessage);
       const allPosts = messages.map(parseBubbaPost).filter(Boolean);
       const posts = allPosts.filter(p => p.tier === cfg.tier);
       const watched = [...getWatchlist()].filter(Boolean);
@@ -496,7 +504,7 @@
       liveByContractCache = liveByContract;
       allRows = buildRows(messages, liveByContract, null);
       rows = buildRows(messages, liveByContract, cfg.tier);
-      $("status").innerHTML = `// source: <b>Dexscreener</b> + scan feed · updated: <b>${new Date().toISOString().slice(11,19)} UTC</b>`;
+      $("status").innerHTML = `// reset: <b>${HISTORY_RESET_DATE}</b> · source: <b>Dexscreener</b> + scan feed · updated: <b>${new Date().toISOString().slice(11,19)} UTC</b>`;
       render();
     } catch (err) {
       $("status").innerHTML = `<span class="neg">// history feed failed: ${escapeHTML(err.message || err)}</span>`;
