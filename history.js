@@ -25,6 +25,11 @@
     return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
   };
   const cleanFieldName = (s) => String(s || "").replace(/^[\s\W_]+/u, "").trim();
+  const cleanCoinSymbol = (s) => String(s || "")
+    .replace(/[`*$]/g, "")
+    .trim()
+    .replace(/^#?\d+\s*[.)\]-]?\s+(?=\S)/, "")
+    .trim();
 
   function parseNumber(v) {
     if (v == null) return null;
@@ -67,7 +72,7 @@
             else if (!links.telegram && /(?:^|\/)t\.me\//i.test(u)) links.telegram = u;
           }
           return {
-            symbol: titleMatch ? titleMatch[1].trim() : title,
+            symbol: cleanCoinSymbol(titleMatch ? titleMatch[1] : title),
             name: titleMatch ? titleMatch[2].trim() : "",
             contract: fields.Contract || null,
             price: parseNumber(fields.Price),

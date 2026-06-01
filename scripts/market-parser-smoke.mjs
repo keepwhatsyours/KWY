@@ -2,6 +2,11 @@
 // Smoke-test the market scan parser against representative Bubba Bot embeds.
 
 const cleanFieldName = s => String(s || '').replace(/^[\s\W_]+/u, '').trim();
+const cleanCoinSymbol = s => String(s || '')
+  .replace(/[`*$]/g, '')
+  .trim()
+  .replace(/^#?\d+\s*[.)\]-]?\s+(?=\S)/, '')
+  .trim();
 
 function parseNumber(v) {
   if (v == null) return null;
@@ -89,7 +94,7 @@ function parseBubbaPost(msg) {
         const fields = {};
         for (const f of (e.fields || [])) fields[cleanFieldName(f.name)] = (f.value || '').replace(/`/g, '');
         return {
-          symbol: titleMatch ? titleMatch[1].trim() : t,
+          symbol: cleanCoinSymbol(titleMatch ? titleMatch[1] : t),
           name: titleMatch ? titleMatch[2].trim() : '',
           contract: fields.Contract || null,
           price: parseNumber(fields.Price),
@@ -115,7 +120,7 @@ const sample = {
   embeds: [
     { title: '🚨 Big Cap 02:30 Scan 05/31/2026', fields: [] },
     {
-      title: 'WORLDCUP  —  World Cup Coin',
+      title: '#1 POKESTR  —  PokeSTR',
       fields: [
         { name: '📋 Contract', value: '33eum82LaAhtv5YkUq1BdwEviSErH5CnFxqVNLT5pump' },
         { name: '💰 Price', value: '$0.0048874' },
@@ -146,7 +151,9 @@ const bullStoredBaseline = resolveStoredBaseline(
 const near = (a, b) => Math.abs(a - b) < 0.001;
 const checks = [
   ['tier', parsed?.tier === 'big'],
-  ['symbol', coin?.symbol === 'WORLDCUP'],
+  ['rank prefix stripped from symbol', coin?.symbol === 'POKESTR'],
+  ['coin name preserved', coin?.name === 'PokeSTR'],
+  ['numeric-only symbol preserved', cleanCoinSymbol('5') === '5'],
   ['contract', coin?.contract === '33eum82LaAhtv5YkUq1BdwEviSErH5CnFxqVNLT5pump'],
   ['mcap', coin?.mcap === 5080000],
   ['liquidity', coin?.liquidity === 539200],

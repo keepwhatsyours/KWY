@@ -1273,6 +1273,11 @@ async function enrichWithLive(md) {
 
 // strip leading emoji + whitespace from field names: "💰 Price" → "Price"
 const cleanFieldName = s => String(s||"").replace(/^[\s\W_]+/u,"").trim();
+const cleanCoinSymbol = s => String(s||"")
+  .replace(/[`*$]/g,"")
+  .trim()
+  .replace(/^#?\d+\s*[.)\]-]?\s+(?=\S)/,"")
+  .trim();
 
 // take a number out of "$0.0046333" / "$4.63M" / "8,676" / "54" / "36/100"
 function parseNumber(v) {
@@ -1307,7 +1312,7 @@ function parseBubbaPost(msg) {
       const coins = msg.embeds.slice(1).map(e => {
         const t = (e.title||"").trim();
         const titleMatch = t.match(/^(.+?)\s+[—\-–]\s+(.+)$/);
-        const symbol = titleMatch ? titleMatch[1].trim() : t;
+        const symbol = cleanCoinSymbol(titleMatch ? titleMatch[1] : t);
         const name   = titleMatch ? titleMatch[2].trim() : "";
         const fields = {};
         for (const f of (e.fields||[])) {
