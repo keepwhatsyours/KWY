@@ -31,6 +31,16 @@ function parseChange(v) {
   return out;
 }
 
+function parseSwaps(v) {
+  if (!v) return { count: null, bsRatio: null };
+  const s = String(v).trim();
+  const ratioM = s.match(/(?:Buy\/Sell|B\/S):\s*([+-]?[\d.]+x)/i);
+  return {
+    count: s.split('(')[0].trim().replace(/\s+/g, ' ') || null,
+    bsRatio: ratioM ? ratioM[1] : null,
+  };
+}
+
 function parseBaselineMcap(v) {
   if (!v) return null;
   const s = String(v).trim().replace(/[`$,\s]/g, '');
@@ -103,6 +113,7 @@ function parseBubbaPost(msg) {
           volume24h: parseNumber(fields['Volume (24h)']),
           holders: parseNumber(fields.Holders),
           score: parseNumber(fields.Score),
+          swaps: fields.Swaps || null,
           change: parseChange(fields['Price Change']),
           health: fields['Wallet Health'] || null,
           risk: fields['Dev / Risk'] || fields['Dev/Risk'] || null,
@@ -130,6 +141,7 @@ const sample = {
         { name: '⭐ Score', value: '49/100' },
         { name: '🔥 Volume (24h)', value: '$925.5K' },
         { name: '👥 Holders', value: '18,861' },
+        { name: '🔄 Swaps', value: '25,404  (B/S: 1.29x)' },
         { name: '🔐 Wallet Health', value: 'Top 10: `19.0%`  |  Bundler: `22.6%`  |  Fresh: `0.0%`' },
         { name: '🛡️ Dev / Risk', value: '✅ Dev Exited | CTO Active | Rug: 0.056 🔴' },
       ],
@@ -139,6 +151,7 @@ const sample = {
 
 const parsed = parseBubbaPost(sample);
 const coin = parsed?.coins?.[0];
+const parsedSwaps = parseSwaps(coin?.swaps);
 const bullOutlier = normalizeSnapshotMcap(
   { mcap: 570260000, price: 0.0039233 },
   { mcap: 3463821, price: 0.003463821 },
@@ -158,6 +171,8 @@ const checks = [
   ['mcap', coin?.mcap === 5080000],
   ['liquidity', coin?.liquidity === 539200],
   ['score ratio', coin?.score === 49],
+  ['swaps count parsed', parsedSwaps.count === '25,404'],
+  ['B/S ratio parsed', parsedSwaps.bsRatio === '1.29x'],
   ['change 1h', coin?.change?.['1h'] === -1.8],
   ['health preserved', /Bundler/.test(coin?.health || '')],
   ['baseline mcap M suffix', near(parseBaselineMcap('$4.14M'), 4140000)],

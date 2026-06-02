@@ -1301,6 +1301,15 @@ function parseChange(v) {
   for (const m of String(v).matchAll(/(1m|5m|1h):\s*`?([+-]?[\d.]+)%/g)) out[m[1]] = parseFloat(m[2]);
   return out;
 }
+function parseSwaps(v) {
+  if (!v) return { count: null, bsRatio: null };
+  const s = String(v).trim();
+  const ratioM = s.match(/(?:Buy\/Sell|B\/S):\s*([+-]?[\d.]+x)/i);
+  return {
+    count: s.split("(")[0].trim().replace(/\s+/g, " ") || null,
+    bsRatio: ratioM ? ratioM[1] : null,
+  };
+}
 
 function parseBubbaPost(msg) {
   // --- EMBED-BASED FORMAT (newer) ---
@@ -1716,21 +1725,15 @@ function coinCard(c, tier, md) {
   const bannerTitle = mcapDelta == null
     ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
     : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
-  // Parse Discord swaps string: "10,681 (Buy/Sell: 1.22x)"
-  let swapCount = null, swapRatio = null;
-  if (c.swaps) {
-    const s = String(c.swaps).trim();
-    const ratioM = s.match(/Buy\/Sell:\s*([\d.]+x)/i);
-    swapRatio = ratioM ? ratioM[1] : null;
-    swapCount = s.split("(")[0].trim().replace(/\s+/g, " ");
-  }
+  // Parse Discord swaps string: "10,681 (B/S: 1.22x)" or older "Buy/Sell".
+  const swapData = parseSwaps(c.swaps);
 
   // Discord feed data only
   const kols    = c.kols    != null ? fmtCount(c.kols)    : "—";
   const degens  = c.degens  != null ? fmtCount(c.degens)  : "—";
   const holders = c.holders != null ? fmtCount(c.holders) : "—";
-  const swaps   = swapCount || "—";
-  const bs      = swapRatio || "—";
+  const swaps   = swapData.count || "—";
+  const bs      = swapData.bsRatio || "—";
 
   // Parse dev status from risk field: "Dev Holding | ..." or "Dev Exited | ..."
   const devHolding = c.risk ? /Dev\s+Holding|Dev\s+Hold/i.test(c.risk) : false;
