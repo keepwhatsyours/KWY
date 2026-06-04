@@ -540,6 +540,11 @@
     text-align:center;text-transform:uppercase;
     border-top:1px solid var(--green-deep);padding-top:14px;
   }
+  footer .footer-kicker{
+    display:flex;justify-content:center;align-items:center;gap:6px 10px;
+    flex-wrap:wrap;line-height:1.6;
+  }
+  footer .footer-kicker span{white-space:nowrap}
   footer .social-links{
     display:flex;justify-content:center;align-items:center;gap:14px;
     margin:10px 0 6px;
@@ -640,6 +645,39 @@
     .coin .kvs.primary{grid-template-columns:1fr 1fr}
     .coin-detail{grid-template-columns:1fr 1fr}
     .data-strip{display:block;line-height:1.55}
+    footer{
+      margin-top:18px;
+      padding:16px 8px 0;
+      font-size:10px;
+      letter-spacing:.075em;
+    }
+    footer .footer-kicker{
+      gap:4px 8px;
+      line-height:1.8;
+      max-width:310px;
+      margin:0 auto;
+    }
+    footer .footer-kicker .brand{
+      flex-basis:100%;
+      color:var(--green);
+      letter-spacing:.14em;
+    }
+    footer .footer-kicker .sep{display:none}
+    footer .social-links{
+      gap:10px;
+      margin:12px 0 8px;
+    }
+    footer .social-links a{
+      width:36px;
+      height:36px;
+    }
+    footer .disclaimer{
+      max-width:330px;
+      margin-top:10px;
+      font-size:10px;
+      line-height:1.65;
+      color:#777;
+    }
   }
 </style>
 </head>
@@ -757,7 +795,15 @@
   </div>
 
   <footer>
-    [ KEEPWHATSYOURS.AI ] · BUILT FOR DEGENS · POWERED BY OPEN CLAW · MARKET DATA VIA DEXSCREENER
+    <div class="footer-kicker">
+      <span class="brand">[ KEEPWHATSYOURS.AI ]</span>
+      <span class="sep">·</span>
+      <span>Built for degens</span>
+      <span class="sep">·</span>
+      <span>Powered by Open Claw</span>
+      <span class="sep">·</span>
+      <span>Market data via Dexscreener</span>
+    </div>
     <div class="social-links">
       <a href="https://x.com/KeepWhatsYours" target="_blank" rel="noopener" aria-label="X (Twitter)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
