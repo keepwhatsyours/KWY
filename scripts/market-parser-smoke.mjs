@@ -54,6 +54,8 @@ function selectBestDexPairs(pairs, requestedAddresses, chain = 'solana') {
   return result;
 }
 
+const pairNeedsPoolRepair = pair => !pair || (pair.dexId === 'pumpfun' && (pair.liquidity?.usd ?? 0) <= 0);
+
 function parseBaselineMcap(v) {
   if (!v) return null;
   const s = String(v).trim().replace(/[`$,\s]/g, '');
@@ -192,6 +194,13 @@ const boutyjakPairs = selectBestDexPairs([
   },
 ], [boutyjakAddress]);
 const boutyjakBestPair = boutyjakPairs.get(boutyjakAddress);
+const staleBoutyjakBatchPair = {
+  chainId: 'solana',
+  dexId: 'pumpfun',
+  baseToken: { address: boutyjakAddress, symbol: 'BOUTYJAK' },
+  liquidity: null,
+  marketCap: 27208.48,
+};
 const near = (a, b) => Math.abs(a - b) < 0.001;
 const checks = [
   ['tier', parsed?.tier === 'big'],
@@ -211,6 +220,8 @@ const checks = [
   ['outlier mcap corrected from price', bullOutlier.corrected && Math.abs(bullOutlier.mcap - 3923300) < 1],
   ['stale stored baseline falls back to corrected feed', Math.abs(bullStoredBaseline - 4016800) < 1],
   ['migrated pair selected over stale pumpfun pair', boutyjakBestPair?.dexId === 'pumpswap' && boutyjakBestPair.marketCap === 425545],
+  ['stale pumpfun batch pair marked for pool repair', pairNeedsPoolRepair(staleBoutyjakBatchPair)],
+  ['healthy pumpswap pair does not need pool repair', !pairNeedsPoolRepair(boutyjakBestPair)],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);

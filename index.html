@@ -1179,32 +1179,64 @@ function gmgnToLive(data) {
 }
 
 /* ---------- DEXSCREENER LIVE PRICES ----------
-   Free public API, CORS=*. Query per-token pools so multi-pair tokens do not
-   crowd each other out of Dexscreener's capped batch responses. */
+   Free public API, CORS=*. Batch first for fast paint, then repair unresolved
+   or stale pumpfun pairs with the per-token pool endpoint. */
 const DEXSCREENER_CHAIN = "solana"; // Bubba Bot tracks Solana coins
+
+function keepBestDexPair(result, addr, pair) {
+  if (pair?.baseToken?.address !== addr || pair?.chainId !== DEXSCREENER_CHAIN) return;
+  const prev = result.get(addr);
+  const liq = pair.liquidity?.usd ?? 0;
+  if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+}
+
+async function fetchDexscreenerPoolPair(addr) {
+  const result = new Map();
+  try {
+    const url = `https://api.dexscreener.com/token-pairs/v1/${DEXSCREENER_CHAIN}/${addr}`;
+    const r = await fetchWithTimeout(url, { cache: "no-store" });
+    if (!r.ok) { console.warn("dexscreener", r.status, addr); return null; }
+    const data = await r.json();
+    const arr = Array.isArray(data) ? data : (data.pairs || []);
+    for (const pair of arr) keepBestDexPair(result, addr, pair);
+  } catch (err) {
+    console.warn("dexscreener fetch err:", err, addr);
+  }
+  return result.get(addr) || null;
+}
 
 async function fetchDexscreenerData(addresses) {
   const result = new Map();
   if (!addresses.length) return result;
 
-  for (let i = 0; i < addresses.length; i += 10) {
-    const chunk = addresses.slice(i, i + 10);
-    await Promise.all(chunk.map(async addr => {
-      try {
-        const url = `https://api.dexscreener.com/token-pairs/v1/${DEXSCREENER_CHAIN}/${addr}`;
-        const r = await fetchWithTimeout(url, { cache: "no-store" });
-        if (!r.ok) { console.warn("dexscreener", r.status, addr); return; }
-        const data = await r.json();
-        const arr = Array.isArray(data) ? data : (data.pairs || []);
-        for (const pair of arr) {
-          if (pair?.baseToken?.address !== addr || pair?.chainId !== DEXSCREENER_CHAIN) continue;
-          const prev = result.get(addr);
-          const liq = pair.liquidity?.usd ?? 0;
-          if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
-        }
-      } catch (err) {
-        console.warn("dexscreener fetch err:", err, addr);
+  for (let i = 0; i < addresses.length; i += 30) {
+    const chunk = addresses.slice(i, i + 30);
+    const chunkSet = new Set(chunk);
+    try {
+      const url = `https://api.dexscreener.com/tokens/v1/${DEXSCREENER_CHAIN}/${chunk.join(",")}`;
+      const r = await fetchWithTimeout(url, { cache: "no-store" });
+      if (!r.ok) { console.warn("dexscreener", r.status); continue; }
+      const data = await r.json();
+      const arr = Array.isArray(data) ? data : (data.pairs || []);
+      for (const pair of arr) {
+        const addr = pair?.baseToken?.address;
+        if (!chunkSet.has(addr)) continue;
+        keepBestDexPair(result, addr, pair);
       }
+    } catch (err) {
+      console.warn("dexscreener batch fetch err:", err);
+    }
+  }
+
+  const repairAddrs = addresses.filter(addr => {
+    const pair = result.get(addr);
+    return !pair || (pair.dexId === "pumpfun" && (pair.liquidity?.usd ?? 0) <= 0);
+  });
+  for (let i = 0; i < repairAddrs.length; i += 8) {
+    const chunk = repairAddrs.slice(i, i + 8);
+    await Promise.all(chunk.map(async addr => {
+      const pair = await fetchDexscreenerPoolPair(addr);
+      if (pair) result.set(addr, pair);
     }));
   }
   return result;
