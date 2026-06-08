@@ -172,7 +172,10 @@
       const r = await fetchWithTimeout(BASELINE_URL, { cache: "no-store" }, 6000);
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
-      serverBaselines = data.baselines || {};
+      serverBaselines = Object.fromEntries(Object.entries(data.baselines || {}).map(([contract, baseline]) => {
+        const cleanContract = String(contract || baseline?.contract || "").replace(/`/g, "").trim();
+        return [cleanContract, { ...baseline, contract: cleanContract }];
+      }).filter(([contract]) => contract));
     } catch {
       serverBaselines = {};
     }
@@ -201,13 +204,15 @@
     const result = new Map();
     for (let i = 0; i < addresses.length; i += 30) {
       const chunk = addresses.slice(i, i + 30);
+      const chunkSet = new Set(chunk);
       try {
-        const r = await fetchWithTimeout(`https://api.dexscreener.com/tokens/v1/${DEX_CHAIN}/${chunk.join(",")}`, { cache: "no-store" }, 9000);
+        const r = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/tokens/${chunk.join(",")}`, { cache: "no-store" }, 9000);
         if (!r.ok) continue;
-        const pairs = await r.json();
+        const data = await r.json();
+        const pairs = Array.isArray(data) ? data : (data.pairs || []);
         for (const pair of pairs) {
           const addr = pair?.baseToken?.address;
-          if (!addr) continue;
+          if (!addr || !chunkSet.has(addr) || pair?.chainId !== DEX_CHAIN) continue;
           const prev = result.get(addr);
           const liq = pair.liquidity?.usd ?? 0;
           if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);

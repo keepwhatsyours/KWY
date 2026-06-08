@@ -41,6 +41,19 @@ function parseSwaps(v) {
   };
 }
 
+function selectBestDexPairs(pairs, requestedAddresses, chain = 'solana') {
+  const requested = new Set(requestedAddresses);
+  const result = new Map();
+  for (const pair of pairs || []) {
+    const addr = pair?.baseToken?.address;
+    if (!addr || !requested.has(addr) || pair?.chainId !== chain) continue;
+    const prev = result.get(addr);
+    const liq = pair.liquidity?.usd ?? 0;
+    if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+  }
+  return result;
+}
+
 function parseBaselineMcap(v) {
   if (!v) return null;
   const s = String(v).trim().replace(/[`$,\s]/g, '');
@@ -161,6 +174,24 @@ const bullStoredBaseline = resolveStoredBaseline(
   [{ mcap: 570260000, price: 0.0040168, ts: '2026-05-28T19:00:34.396Z' }],
   { mcap: 3463821, price: 0.003463821 },
 );
+const boutyjakAddress = '6eEQtGNoQ7VaPFy3iUZBxNHU5LfvYZRep6umdbfpump';
+const boutyjakPairs = selectBestDexPairs([
+  {
+    chainId: 'solana',
+    dexId: 'pumpfun',
+    baseToken: { address: boutyjakAddress, symbol: 'BOUTYJAK' },
+    liquidity: null,
+    marketCap: 27208.48,
+  },
+  {
+    chainId: 'solana',
+    dexId: 'pumpswap',
+    baseToken: { address: boutyjakAddress, symbol: 'BOUTYJAK' },
+    liquidity: { usd: 50851.3 },
+    marketCap: 425545,
+  },
+], [boutyjakAddress]);
+const boutyjakBestPair = boutyjakPairs.get(boutyjakAddress);
 const near = (a, b) => Math.abs(a - b) < 0.001;
 const checks = [
   ['tier', parsed?.tier === 'big'],
@@ -179,6 +210,7 @@ const checks = [
   ['baseline mcap K suffix', near(parseBaselineMcap('$277.7K'), 277700)],
   ['outlier mcap corrected from price', bullOutlier.corrected && Math.abs(bullOutlier.mcap - 3923300) < 1],
   ['stale stored baseline falls back to corrected feed', Math.abs(bullStoredBaseline - 4016800) < 1],
+  ['migrated pair selected over stale pumpfun pair', boutyjakBestPair?.dexId === 'pumpswap' && boutyjakBestPair.marketCap === 425545],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
