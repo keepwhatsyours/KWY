@@ -1179,34 +1179,33 @@ function gmgnToLive(data) {
 }
 
 /* ---------- DEXSCREENER LIVE PRICES ----------
-   Free public API, CORS=*, supports up to 30 addresses per call. */
+   Free public API, CORS=*. Query per-token pools so multi-pair tokens do not
+   crowd each other out of Dexscreener's capped batch responses. */
 const DEXSCREENER_CHAIN = "solana"; // Bubba Bot tracks Solana coins
 
 async function fetchDexscreenerData(addresses) {
   const result = new Map();
   if (!addresses.length) return result;
-  // Dexscreener allows up to 30 addresses per request; batch.
-  for (let i = 0; i < addresses.length; i += 30) {
-    const chunk = addresses.slice(i, i + 30);
-    const chunkSet = new Set(chunk);
-    try {
-      const url = `https://api.dexscreener.com/latest/dex/tokens/${chunk.join(",")}`;
-      const r = await fetchWithTimeout(url, { cache: "no-store" });
-      if (!r.ok) { console.warn("dexscreener", r.status); continue; }
-      const data = await r.json();
-      const arr = Array.isArray(data) ? data : (data.pairs || []);
-      // arr is an array of pair objects (one or more pairs per token).
-      for (const pair of arr) {
-        const addr = pair?.baseToken?.address;
-        if (!addr || !chunkSet.has(addr) || pair?.chainId !== DEXSCREENER_CHAIN) continue;
-        // Keep only the highest-liquidity pair per token.
-        const prev = result.get(addr);
-        const liq = pair.liquidity?.usd ?? 0;
-        if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+
+  for (let i = 0; i < addresses.length; i += 10) {
+    const chunk = addresses.slice(i, i + 10);
+    await Promise.all(chunk.map(async addr => {
+      try {
+        const url = `https://api.dexscreener.com/token-pairs/v1/${DEXSCREENER_CHAIN}/${addr}`;
+        const r = await fetchWithTimeout(url, { cache: "no-store" });
+        if (!r.ok) { console.warn("dexscreener", r.status, addr); return; }
+        const data = await r.json();
+        const arr = Array.isArray(data) ? data : (data.pairs || []);
+        for (const pair of arr) {
+          if (pair?.baseToken?.address !== addr || pair?.chainId !== DEXSCREENER_CHAIN) continue;
+          const prev = result.get(addr);
+          const liq = pair.liquidity?.usd ?? 0;
+          if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+        }
+      } catch (err) {
+        console.warn("dexscreener fetch err:", err, addr);
       }
-    } catch (err) {
-      console.warn("dexscreener fetch err:", err);
-    }
+    }));
   }
   return result;
 }

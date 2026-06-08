@@ -202,22 +202,23 @@
 
   async function fetchDexscreener(addresses) {
     const result = new Map();
-    for (let i = 0; i < addresses.length; i += 30) {
-      const chunk = addresses.slice(i, i + 30);
-      const chunkSet = new Set(chunk);
-      try {
-        const r = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/tokens/${chunk.join(",")}`, { cache: "no-store" }, 9000);
-        if (!r.ok) continue;
-        const data = await r.json();
-        const pairs = Array.isArray(data) ? data : (data.pairs || []);
-        for (const pair of pairs) {
-          const addr = pair?.baseToken?.address;
-          if (!addr || !chunkSet.has(addr) || pair?.chainId !== DEX_CHAIN) continue;
-          const prev = result.get(addr);
-          const liq = pair.liquidity?.usd ?? 0;
-          if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+    for (let i = 0; i < addresses.length; i += 10) {
+      const chunk = addresses.slice(i, i + 10);
+      await Promise.all(chunk.map(async addr => {
+        try {
+          const r = await fetchWithTimeout(`https://api.dexscreener.com/token-pairs/v1/${DEX_CHAIN}/${addr}`, { cache: "no-store" }, 9000);
+          if (!r.ok) return;
+          const data = await r.json();
+          const pairs = Array.isArray(data) ? data : (data.pairs || []);
+          for (const pair of pairs) {
+            if (pair?.baseToken?.address !== addr || pair?.chainId !== DEX_CHAIN) continue;
+            const prev = result.get(addr);
+            const liq = pair.liquidity?.usd ?? 0;
+            if (!prev || liq > (prev.liquidity?.usd ?? 0)) result.set(addr, pair);
+          }
+        } catch {
         }
-      } catch {}
+      }));
     }
     return result;
   }
