@@ -1261,6 +1261,17 @@ function dexToLive(pair) {
   };
 }
 
+function isDexscreenerUrl(url) {
+  return typeof url === "string" && /^https:\/\/(?:www\.)?dexscreener\.com\//i.test(url);
+}
+
+function dexscreenerUrlForContract(contract, live = null, fallbackUrl = null) {
+  if (isDexscreenerUrl(live?.url)) return live.url;
+  if (isDexscreenerUrl(fallbackUrl)) return fallbackUrl;
+  if (!contract) return null;
+  return `https://dexscreener.com/${DEXSCREENER_CHAIN}/${encodeURIComponent(contract)}`;
+}
+
 /* ---------- ROLLING ATH TRACKER (localStorage-backed) ---------- */
 // Stores the highest live MCAP ever seen per contract across all sessions.
 // This is the ONLY accurate ATH — it tracks Dexscreener live data over time.
@@ -1973,7 +1984,7 @@ function renderFlagHistory(md) {
   tbody.innerHTML = wins.slice(0, 10).map(w => {
     const ca = w.contract || "";
     const gainCls = w.gain >= 0 ? "pos" : "neg";
-    const dexUrl = ca ? `https://dexscreener.com/solana/${escapeHTML(ca)}` : null;
+    const dexUrl = dexscreenerUrlForContract(ca);
     const symCell = dexUrl
       ? `<td class="sym-cell"><a href="${dexUrl}" target="_blank" rel="noopener" style="color:var(--green);text-decoration:none;border-bottom:1px dashed var(--green-deep)" title="open chart on Dexscreener"><b>$${escapeHTML(w.symbol)}</b></a><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(w.name)}</div></td>`
       : `<td><b>$${escapeHTML(w.symbol)}</b><div style="color:var(--green-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em">${escapeHTML(w.name)}</div></td>`;
@@ -2036,6 +2047,7 @@ function computePerformance(md) {
       tier: newest.tier,
       pct,
       isLive: liveMcap != null,
+      chartUrl: dexscreenerUrlForContract(contract, newest?.live, newest?.links?.chart),
     });
   }
   out.sort((a,b) => b.pct - a.pct);
@@ -2043,6 +2055,14 @@ function computePerformance(md) {
 }
 
 let wlChart = null;
+function wlChartRowIndexFromEvent(chart, event, rowCount) {
+  const yScale = chart?.scales?.y;
+  if (!yScale || !Number.isFinite(event?.y) || event.y < yScale.top || event.y > yScale.bottom) return null;
+  const hits = chart.getElementsAtEventForMode(event, "nearest", { axis: "y", intersect: false }, true);
+  const index = hits[0]?.index ?? Math.round(yScale.getValueForPixel(event.y));
+  return Number.isInteger(index) && index >= 0 && index < rowCount ? index : null;
+}
+
 function renderWinnersLosers(md) {
   const perf = computePerformance(md);
   const meta = document.getElementById("wl-meta");
@@ -2054,6 +2074,7 @@ function renderWinnersLosers(md) {
     setDataStrip("wl-data-strip", `// source: awaiting live performance data`);
     summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins flagged in the last 24 hours — once Bubba Bot posts a scan, winners and losers appear here.</div>`;
     if (wlChart) { wlChart.destroy(); wlChart = null; }
+    if (ctx) { ctx.onclick = null; ctx.onmousemove = null; ctx.style.cursor = "default"; }
     if (ctx?.getContext) ctx.getContext("2d").clearRect(0, 0, ctx.width, ctx.height);
     return;
   }
@@ -2151,6 +2172,17 @@ function renderWinnersLosers(md) {
       animation: { duration: 700, easing: "easeOutCubic" },
     },
   });
+  ctx.onmousemove = event => {
+    const rect = ctx.getBoundingClientRect();
+    const index = wlChartRowIndexFromEvent(wlChart, { y: event.clientY - rect.top }, combined.length);
+    ctx.style.cursor = combined[index]?.chartUrl ? "pointer" : "default";
+  };
+  ctx.onclick = event => {
+    const rect = ctx.getBoundingClientRect();
+    const index = wlChartRowIndexFromEvent(wlChart, { y: event.clientY - rect.top }, combined.length);
+    const url = combined[index]?.chartUrl;
+    if (url) window.open(url, "_blank", "noopener");
+  };
 }
 
 function renderAllScanPanels(md) {
@@ -2341,7 +2373,12 @@ async function pollIntelFeed() {
       if (r.ok) {
         const data = await r.json();
         msgs = Array.isArray(data) ? data : (data.messages || []);
-        if (msgs.length) currentIntelSource = "live intel endpoint";
+        if (msgs.length) {
+          const liveSources = Array.isArray(data.sources)
+            ? data.sources.filter(s => s?.ok && s?.slug).map(s => `t.me/${s.slug}`)
+            : [];
+          currentIntelSource = liveSources.length ? liveSources.join(" + ") : "live intel endpoint";
+        }
       }
     } catch (err) {
       console.warn("intel live fetch failed:", err.message || err);

@@ -669,7 +669,7 @@ async function fetchTelegramChannel(slug, max = 30) {
 
 // ---------- INTEL FEED (multi-channel Telegram aggregator) ----------
 const INTEL_SLUGS = [
-  'SolanaAlphaAlert',
+  'solanaalphasignal',
 ];
 const INTEL_PER_CHANNEL = 20;   // pull more than we need, filter junk, then cap
 const INTEL_TOTAL = 50;         // cap merged result
@@ -693,6 +693,7 @@ function isJunkPost(content) {
   if (t.length < 10) return true;
 
   // Service messages
+  if (/^channel created$/i.test(t)) return true;
   if (/\bpinned (?:a |the )?(?:video|message|post|photo|file|audio)\b/i.test(t)) return true;
   if (/^[^\n]{0,80}joined (?:the )?(?:channel|group)\b/im.test(t)) return true;
 
