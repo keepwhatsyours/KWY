@@ -1408,6 +1408,47 @@ function parseSwaps(v) {
 }
 
 function parseBubbaPost(msg) {
+  const content = msg.content || "";
+
+  // --- RUNNER PICK FORMAT (text-only AM/PM best runner) ---
+  const runnerMatch = content.match(/🚨\s*BEST\s+(AM|PM)\s+RUNNER\s+(\d{2}\/\d{2}\/\d{4})\s+🚨/i);
+  if (runnerMatch) {
+    const symbolMatch = content.match(/Ticker:\s*\$?\s*(\S+)/i);
+    const mcapMatch   = content.match(/Market Cap:\s*\$?\s*([\d.]+[KMB]?)/i);
+    const liqMatch    = content.match(/Liquidity:\s*\$?\s*([\d.]+[KMB]?)/i);
+    const volMatch    = content.match(/(?:24H|24h|24H)\s+Volume:\s*\$?\s*([\d.]+[KMB]?)/i);
+    const caMatch     = content.match(/CA:\s*([1-9A-HJ-NP-Za-km-z]{32,44})/);
+    const symbol = symbolMatch ? cleanCoinSymbol(symbolMatch[1]) : "";
+    const contract = caMatch ? caMatch[1] : null;
+    const links = contract ? { chart: `https://dexscreener.com/solana/${contract}` } : {};
+    if (symbol && contract) {
+      return {
+        id: msg.id,
+        ts: msg.timestamp,
+        tier: "runner",
+        coins: [{
+          symbol,
+          name: "",
+          contract,
+          price: null,
+          mcap: parseNumber(mcapMatch?.[1]),
+          liquidity: parseNumber(liqMatch?.[1]),
+          volume24h: parseNumber(volMatch?.[1]),
+          holders: null,
+          score: null,
+          degens: null,
+          kols: null,
+          change: {},
+          swaps: null,
+          health: null,
+          risk: null,
+          links,
+          raw: {},
+        }]
+      };
+    }
+  }
+
   // --- EMBED-BASED FORMAT (newer) ---
   if (msg.embeds && msg.embeds.length >= 2) {
     const header = msg.embeds[0];
@@ -1461,7 +1502,6 @@ function parseBubbaPost(msg) {
   }
 
   // --- CONTENT-BASED FORMAT (older, text-only) ---
-  const content = msg.content || "";
   const tierMatch2 = content.match(/🎯\s*\*\*(Big|Mid|Low)\s+Cap\s+Scan/i);
   if (!tierMatch2) return null;
   const tier = tierMatch2[1].toLowerCase();
@@ -2073,9 +2113,19 @@ function renderWinnersLosers(md) {
   const ctx = document.getElementById("wl-chart");
 
   if (!perf.length) {
+    const runnerCount = md.posts.filter(p => p.tier === "runner").length;
+    const scanCount   = md.posts.filter(p => ["big","mid","low"].includes(p.tier)).length;
+    const lastPostTs  = md.posts[0]?.ts;
+    const ago = lastPostTs ? fmtAgo(lastPostTs) : "—";
     meta.textContent = "// no flags in last 24h…";
-    setDataStrip("wl-data-strip", `// source: awaiting live performance data`);
-    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">// no coins flagged in the last 24 hours — once Bubba Bot posts a scan, winners and losers appear here.</div>`;
+    setDataStrip("wl-data-strip", `// source: awaiting live performance data · last post: <b>${ago}</b>`);
+    let msg = "// no coins flagged in the last 24 hours — once Bubba Bot posts a scan, winners and losers appear here.";
+    if (runnerCount && !scanCount) {
+      msg = `// <b>${runnerCount}</b> runner pick${runnerCount > 1 ? "s" : ""} posted in the last 24h, but no tier scans yet — runners now tracked after this page refresh.`;
+    } else if (scanCount) {
+      msg = `// <b>${scanCount}</b> scan${scanCount > 1 ? "s" : ""} in feed, but last flag is outside the rolling 24h window · last post: ${ago}.`;
+    }
+    summary.innerHTML = `<div style="color:var(--green-dim);padding:8px">${msg}</div>`;
     if (wlChart) { wlChart.destroy(); wlChart = null; }
     if (ctx) { ctx.onclick = null; ctx.onmousemove = null; ctx.style.cursor = "default"; }
     if (ctx?.getContext) ctx.getContext("2d").clearRect(0, 0, ctx.width, ctx.height);
