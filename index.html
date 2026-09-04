@@ -2273,8 +2273,8 @@ const fmtTs = iso => {
 
 let feedSeen = new Set();
 let feedFirstRender = true;
-let feedMessages = []; // Discord /feed messages — fallback for Intel Feed
-let currentIntelSource = "live intel endpoint";
+let feedMessages = []; // Discord /feed messages — used only for scan panels, never Intel Feed
+let currentIntelSource = "t.me/solanaAlphasignal";
 
 function renderFeedOffline(){
   const f = document.getElementById("feed");
@@ -2398,7 +2398,7 @@ async function pollFeed(){
     renderAllScanPanels(md);
     lastFeedUpdate = Date.now();
 
-    // Store Discord feed messages for Intel Feed fallback
+    // Store Discord /feed messages for scan panels only (not Intel Feed)
     feedMessages = msgs;
 
     // Enrich with live Dexscreener prices, re-render.
@@ -2413,13 +2413,15 @@ async function pollFeed(){
   }
 }
 
-// Poll the multi-channel Telegram /intel endpoint for INTEL FEED.
+// Poll the @solanaAlphasignal Telegram /intel endpoint for INTEL FEED.
+// This feed is intentionally isolated from the Discord /feed (GMGN scan data)
+// so the INTEL FEED panel only shows @solanaAlphasignal posts.
 const INTEL_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/intel") : "";
 const INTEL_POLL_MS = 15_000; // 15s — keep intel feed fresh
 async function pollIntelFeed() {
   let msgs = [];
 
-  // 1. Try live /intel endpoint
+  // 1. Try live /intel endpoint (@solanaAlphasignal)
   if (INTEL_URL) {
     try {
       const r = await fetchWithTimeout(INTEL_URL, { cache: "no-store" });
@@ -2430,7 +2432,7 @@ async function pollIntelFeed() {
           const liveSources = Array.isArray(data.sources)
             ? data.sources.filter(s => s?.ok && s?.slug).map(s => `t.me/${s.slug}`)
             : [];
-          currentIntelSource = liveSources.length ? liveSources.join(" + ") : "live intel endpoint";
+          currentIntelSource = liveSources.length ? liveSources.join(" + ") : "t.me/solanaAlphasignal";
         }
       }
     } catch (err) {
@@ -2438,20 +2440,14 @@ async function pollIntelFeed() {
     }
   }
 
-  // 2. Fallback to Discord feed messages
-  if (!msgs.length && feedMessages.length) {
-    msgs = feedMessages;
-    currentIntelSource = "discord feed fallback";
-  }
-
-  // 3. Fallback to local intel snapshot (bundled with the site)
+  // 2. Fallback to local @solanaAlphasignal snapshot bundled with the site
   if (!msgs.length) {
     try {
       const r = await fetchWithTimeout("intel-snapshot.json", { cache: "no-store" });
       if (r.ok) {
         const data = await r.json();
         msgs = Array.isArray(data) ? data : (data.messages || []);
-        if (msgs.length) currentIntelSource = "bundled intel snapshot";
+        if (msgs.length) currentIntelSource = "bundled @solanaAlphasignal snapshot";
       }
     } catch (err) {
       console.warn("intel snapshot fallback failed:", err.message || err);
@@ -2464,7 +2460,7 @@ async function pollIntelFeed() {
   } else if (!INTEL_URL) {
     renderFeedOffline();
   } else {
-    renderFeedError("live /intel unreachable and no snapshot available");
+    renderFeedError("live /intel unreachable and no @solanaAlphasignal snapshot available");
   }
 }
 
@@ -2719,6 +2715,7 @@ setInterval(renderHealth, 5000);
       enrichWithLive(md).then(() => renderAllScanPanels(md)).catch(() => {});
     }
     if (intelSnap?.messages?.length) {
+      currentIntelSource = "bundled @solanaAlphasignal snapshot";
       renderFeed(intelSnap.messages);
       lastIntelUpdate = Date.now();
     }

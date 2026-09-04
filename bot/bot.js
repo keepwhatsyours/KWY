@@ -669,7 +669,7 @@ async function fetchTelegramChannel(slug, max = 30) {
 
 // ---------- INTEL FEED (multi-channel Telegram aggregator) ----------
 const INTEL_SLUGS = [
-  'SolanaAlphaAlert',
+  'solanaAlphasignal',
 ];
 const INTEL_PER_CHANNEL = 20;   // pull more than we need, filter junk, then cap
 const INTEL_TOTAL = 50;         // cap merged result
