@@ -624,7 +624,9 @@ function extractMessageLinks(rawHtml, cleanedContent) {
     // Referral / ad links we never want to surface as buttons.
     const isRefLink = (u) =>
       /[?&]ref=/i.test(u) || /[?&]start=/i.test(u) ||
-      /(?:^|\/\/)(?:www\.)?(?:mevx\.io|gmgn\.ai|bullx|cabal\.io)/i.test(u);
+      /(?:^|\/\/)(?:www\.)?(?:mevx\.io|gmgn\.ai|bullx|cabal\.io|axiom\.trade)/i.test(u) ||
+      // Path-based referral suffixes like /t/<ca>/@username
+      /\/@[A-Za-z0-9_]+\/?$/i.test(u);
     for (const m of rawHtml.matchAll(/<a[^>]*href="([^"]+)"[^>]*>/gi)) {
       const u = m[1].trim();
       if (!u || u.startsWith('mailto:')) continue;
