@@ -1918,8 +1918,6 @@ function coinCard(c, tier, md) {
     : null;
   const health = parseWalletHealth(c.health);
   const anomalies = [];
-  const dislocation = live?.mcap && normalizedCardMcap.mcap ? mcapRatio(live.mcap, normalizedCardMcap.mcap) : 1;
-  if (dislocation >= 10 && !normalizedCardMcap.corrected) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
   const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "jupiter" ? "jupiter fallback" : "discord snapshot";
   const bannerTitle = mcapDelta == null
     ? `No mcap data available. Source: ${sourceLabel}.`
