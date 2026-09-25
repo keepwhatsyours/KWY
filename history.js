@@ -242,7 +242,12 @@
 
     const repairAddrs = addresses.filter(addr => {
       const pair = result.get(addr);
-      return !pair || (pair.dexId === "pumpfun" && (pair.liquidity?.usd ?? 0) <= 0);
+      if (!pair) return true;
+      // Batch endpoint sometimes returns stub pairs with all metrics null
+      // (no mcap/fdv/price). Treat those as unresolved and repair.
+      const hasData = (pair.marketCap ?? pair.fdv) != null || pair.priceUsd != null;
+      if (!hasData) return true;
+      return pair.dexId === "pumpfun" && (pair.liquidity?.usd ?? 0) <= 0;
     });
     for (let i = 0; i < repairAddrs.length; i += 8) {
       const chunk = repairAddrs.slice(i, i + 8);

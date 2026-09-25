@@ -308,6 +308,10 @@
     text-shadow:0 0 10px rgba(255,85,119,.55);
     box-shadow:inset 0 0 18px rgba(255,85,119,.06);
   }
+  .coin .mcap-banner.stale{
+    opacity:.55;
+    border-style:dashed;
+  }
   .coin .mcap-banner .bnr-label{
     font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;
     opacity:.7;margin-left:6px;text-shadow:none;
@@ -1233,7 +1237,13 @@ async function fetchDexscreenerData(addresses) {
 
   const repairAddrs = addresses.filter(addr => {
     const pair = result.get(addr);
-    return !pair || (pair.dexId === "pumpfun" && (pair.liquidity?.usd ?? 0) <= 0);
+    if (!pair) return true;
+    // Batch endpoint sometimes returns stub pairs with all metrics null
+    // (no mcap/fdv/price). Treat those as unresolved and repair via the
+    // per-token pool endpoint, which usually has the real data.
+    const hasData = (pair.marketCap ?? pair.fdv) != null || pair.priceUsd != null;
+    if (!hasData) return true;
+    return pair.dexId === "pumpfun" && (pair.liquidity?.usd ?? 0) <= 0;
   });
   for (let i = 0; i < repairAddrs.length; i += 8) {
     const chunk = repairAddrs.slice(i, i + 8);
@@ -1839,7 +1849,15 @@ function coinCard(c, tier, md) {
 
   // Banner: % change from FIRST flag mcap (original call) to CURRENT live mcap
   const hasLaterSnapshot = latestFlagWithMcap?.ts && calledTs && latestFlagWithMcap.ts !== calledTs;
-  const currentMcap = live?.mcap ?? (hasLaterSnapshot ? latestFlagWithMcap.normalizedMcap : null);
+  const liveMcap = live?.mcap ?? null;
+  let currentMcap = liveMcap ?? (hasLaterSnapshot ? latestFlagWithMcap.normalizedMcap : null);
+  // Last-resort: if there's no live data AND no later snapshot (dead/abandoned
+  // token), fall back to this card's own snapshot mcap so the banner shows a
+  // stale value instead of shimmering forever.
+  const isStale = currentMcap == null;
+  if (isStale) {
+    currentMcap = normalizedCardMcap.mcap ?? null;
+  }
   const mcapDelta   = (currentMcap != null && calledMcap != null && calledMcap > 0)
                         ? ((currentMcap - calledMcap) / calledMcap) * 100 : null;
 
@@ -1859,8 +1877,10 @@ function coinCard(c, tier, md) {
   if (dislocation >= 10 && !normalizedCardMcap.corrected) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
   const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
   const bannerTitle = mcapDelta == null
-    ? `Awaiting current mcap. Called: ${fmtCompact(calledMcap)}. Source: ${sourceLabel}.`
-    : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
+    ? `No mcap data available. Source: ${sourceLabel}.`
+    : isStale
+      ? `OFFLINE (no live market data). Last known: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Source: ${sourceLabel}`
+      : `Called: ${fmtCompact(calledMcap)} | Now: ${fmtCompact(currentMcap)} | Change: ${(mcapDelta >= 0 ? "+" : "")}${mcapDelta.toFixed(1)}% | Current source: ${sourceLabel} | Called source: ${calledSource}`;
   // Parse Discord swaps string: "10,681 (B/S: 1.22x)" or older "Buy/Sell".
   const swapData = parseSwaps(c.swaps);
 
@@ -1892,6 +1912,13 @@ function coinCard(c, tier, md) {
       ${anomalies.length ? `<div class="source-line"><span class="warns">${anomalies.map(a => `<span class="warn ${a.bad ? "bad" : ""}" title="${escapeHTML(a.title)}">${escapeHTML(a.label)}</span>`).join("")}</span></div>` : ""}
       ${(() => {
         // Banner: % change from Discord "called at" mcap to CURRENT live mcap.
+        if (isStale) {
+          // No live market data — show last-known mcap, clearly marked stale.
+          if (currentMcap == null) {
+            return `<div class="mcap-banner loading" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
+          }
+          return `<div class="mcap-banner neg stale" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">${fmtCompact(currentMcap)}<span class="bnr-label">offline</span></div>`;
+        }
         const delta = mcapDelta;
         if (delta == null) {
           return `<div class="mcap-banner loading" data-toggle-detail="1" title="${escapeHTML(bannerTitle)}">&nbsp;</div>`;
