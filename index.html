@@ -1137,51 +1137,90 @@ function renderChart(rows, startingCapital){
   });
 }
 
-/* ---------- GMGN LIVE DATA (via bot proxy) ---------- */
-const GMGN_CHAIN = "sol";
+/* ---------- JUPITER FALLBACK LIVE DATA ----------
+   Dexscreener occasionally has no usable pair for a token (returns null
+   metrics or no pair). The old GMGN proxy fallback is dead (gmgn.ai is fully
+   Cloudflare-walled, 403 for every request). Jupiter Price API v3 is a free,
+   keyless, Solana-native source that prices many of those same tokens.
+   Jupiter returns price/liquidity/24h-change but NOT market cap, so we fetch
+   token supply from Solana's public RPC and compute mcap = price * supply. */
+const JUP_PRICE_URL = "https://api.jup.ag/price/v3";
+const SOL_RPC_URL = "https://api.mainnet-beta.solana.com";
 
-async function fetchGMGNData(addresses) {
+async function fetchTokenSupply(addr) {
+  try {
+    const r = await fetchWithTimeout(SOL_RPC_URL, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getTokenSupply", params: [addr] }),
+    }, 9000);
+    if (!r.ok) return null;
+    const json = await r.json();
+    const ui = json?.result?.value?.uiAmount;
+    return Number.isFinite(ui) && ui > 0 ? ui : null;
+  } catch (err) {
+    console.warn("rpc supply err:", err.message, addr);
+    return null;
+  }
+}
+
+async function fetchJupiterData(addresses) {
   const result = new Map();
   if (!addresses.length) return result;
-  for (const addr of addresses) {
+
+  // Batch price lookup (up to 50 ids per call).
+  for (let i = 0; i < addresses.length; i += 50) {
+    const chunk = addresses.slice(i, i + 50);
     try {
-      const url = `${FEED_URL.replace(/\/feed$/, "")}/gmgn?chain=${GMGN_CHAIN}&address=${encodeURIComponent(addr)}`;
-      const r = await fetchWithTimeout(url, { cache: "no-store" }, 10000);
-      if (!r.ok) { console.warn("gmgn", r.status, addr); continue; }
-      const json = await r.json();
-      const data = json.data || json;
-      if (data?.address) result.set(addr, data);
+      const url = `${JUP_PRICE_URL}?ids=${chunk.map(encodeURIComponent).join(",")}`;
+      const r = await fetchWithTimeout(url, { cache: "no-store", headers: { "Accept": "application/json" } }, 9000);
+      if (!r.ok) { console.warn("jupiter", r.status); continue; }
+      const data = await r.json();
+      for (const addr of chunk) {
+        const p = data?.[addr];
+        if (p && Number.isFinite(p.usdPrice) && p.usdPrice > 0) {
+          result.set(addr, {
+            price: p.usdPrice,
+            liquidity: Number.isFinite(p.liquidity) ? p.liquidity : null,
+            change24h: Number.isFinite(p.priceChange24h) ? p.priceChange24h : null,
+            launchpad: p.launchpad || null,
+            decimals: p.decimals ?? null,
+          });
+        }
+      }
     } catch (err) {
-      console.warn("gmgn fetch err:", err.message, addr);
+      console.warn("jupiter batch err:", err.message);
     }
   }
+
+  // Resolve supply for each priced token so we can compute mcap.
+  await Promise.all([...result.keys()].map(async addr => {
+    const supply = await fetchTokenSupply(addr);
+    const rec = result.get(addr);
+    if (rec) rec.supply = supply;
+  }));
   return result;
 }
 
-function gmgnToLive(data) {
-  if (!data) return null;
-  const price = parseFloat(data.price?.price || data.price || 0);
-  const supply = parseFloat(data.circulating_supply || data.total_supply || 0);
-  const mcap = price * supply;
-  const changeFrom = previous => {
-    const prev = parseFloat(previous || 0);
-    return prev ? ((price - prev) / prev) * 100 : null;
-  };
-
+function jupiterToLive(addr, rec) {
+  if (!rec) return null;
+  const price = rec.price ?? null;
+  const mcap = (price != null && rec.supply != null) ? price * rec.supply : null;
   return {
-    source: "gmgn",
-    price: price || null,
-    mcap: mcap || null,
-    liquidity: parseFloat(data.liquidity || data.pool?.liquidity || 0) || null,
-    volume24h: parseFloat(data.price?.volume_24h || data.price?.volume24h || 0) || null,
+    source: "jupiter",
+    price,
+    mcap,
+    liquidity: rec.liquidity ?? null,
+    volume24h: null, // Jupiter price API does not provide volume
     change: {
-      "5m": changeFrom(data.price?.price_5m),
-      "1h": changeFrom(data.price?.price_1h),
-      "24h": changeFrom(data.price?.price_24h),
+      "5m": null,
+      "1h": null,
+      "24h": rec.change24h ?? null,
     },
-    dex: data.pool?.exchange || null,
-    url: data.link?.gmgn || null,
-    pairCreatedAt: null,
+    dex: rec.launchpad || null,
+    url: `https://dexscreener.com/solana/${addr}`,
+    pairCreatedAt: rec.launchpad ? null : null,
   };
 }
 
@@ -1342,7 +1381,7 @@ async function syncCalledBaselines() {
 }
 
 // mutate md.posts coins in place: attach `.live` from Dexscreener, falling
-// back to GMGN when Dex has no pair; also store md.live for consumers.
+// back to Jupiter when Dex has no usable pair; also store md.live for consumers.
 async function enrichWithLive(md) {
   const addresses = [];
   const seen = new Set();
@@ -1356,16 +1395,24 @@ async function enrichWithLive(md) {
   }
   const dexPairs = await fetchDexscreenerData(addresses);
   if (dexPairs.size) lastDexUpdate = Date.now();
-  const missing = addresses.filter(addr => !dexPairs.has(addr));
-  const gmgnPairs = missing.length ? await fetchGMGNData(missing) : new Map();
-  md.live = new Map([...dexPairs, ...gmgnPairs]);
+  // Tokens Dexscreener couldn't price (no pair, or a stub pair with no mcap)
+  // fall back to Jupiter (free, keyless, Solana-native).
+  const missing = addresses.filter(addr => {
+    const pair = dexPairs.get(addr);
+    if (!pair) return true;
+    return (pair.marketCap ?? pair.fdv) == null && pair.priceUsd == null;
+  });
+  const jupPairs = missing.length ? await fetchJupiterData(missing) : new Map();
+  md.live = new Map([...dexPairs, ...jupPairs]);
 
   for (const post of md.posts) {
     for (const coin of post.coins) {
       const dexPair = dexPairs.get(coin.contract);
-      const gmgnData = gmgnPairs.get(coin.contract);
-      if (dexPair || gmgnData) {
-        coin.live = dexPair ? dexToLive(dexPair) : gmgnToLive(gmgnData);
+      // Only use a Dexscreener pair when it actually carries market data.
+      const dexHasData = dexPair && ((dexPair.marketCap ?? dexPair.fdv) != null || dexPair.priceUsd != null);
+      const jupData = jupPairs.get(coin.contract);
+      if (dexHasData || jupData) {
+        coin.live = dexHasData ? dexToLive(dexPair) : jupiterToLive(coin.contract, jupData);
         // Update rolling ATH with live mcap
         updateATH(coin.contract, coin.live?.mcap);
       }
@@ -1825,11 +1872,11 @@ function coinCard(c, tier, md) {
   const mcap  = live?.mcap  ?? normalizedCardMcap.mcap ?? c.mcap;
   const liq   = live?.liquidity ?? c.liquidity;
   const vol   = live?.volume24h ?? c.volume24h;
-  const isLive = live?.source === "dexscreener";
-  const liveTitle = isLive
+  const isLive = live?.source === "dexscreener" || live?.source === "jupiter";
+  const liveTitle = live?.source === "dexscreener"
     ? "LIVE: Dexscreener data loaded"
-    : live?.source === "gmgn"
-      ? "DELAYED: GMGN fallback, Dexscreener unavailable"
+    : live?.source === "jupiter"
+      ? "LIVE: Jupiter fallback (Dexscreener unavailable)"
       : "NOT LIVE: Discord snapshot only";
 
   // Find ALL flags for this token across all scans (by contract, then symbol).
@@ -1875,7 +1922,7 @@ function coinCard(c, tier, md) {
   const anomalies = [];
   const dislocation = live?.mcap && normalizedCardMcap.mcap ? mcapRatio(live.mcap, normalizedCardMcap.mcap) : 1;
   if (dislocation >= 10 && !normalizedCardMcap.corrected) anomalies.push({ label: "mcap 10x drift", bad: true, title: `Discord mcap ${fmtCompact(c.mcap)} vs live ${fmtCompact(live.mcap)}` });
-  const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "gmgn" ? "gmgn fallback" : "discord snapshot";
+  const sourceLabel = live?.source === "dexscreener" ? "dexscreener live" : live?.source === "jupiter" ? "jupiter fallback" : "discord snapshot";
   const bannerTitle = mcapDelta == null
     ? `No mcap data available. Source: ${sourceLabel}.`
     : isStale

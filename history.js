@@ -277,6 +277,71 @@
     };
   }
 
+  /* ---------- JUPITER FALLBACK (Dexscreener has no usable pair) ----------
+     Free, keyless, Solana-native price API. Returns price/liquidity/24h-change
+     but NOT market cap — compute mcap from RPC token supply. */
+  const JUP_PRICE_URL = "https://api.jup.ag/price/v3";
+  const SOL_RPC_URL = "https://api.mainnet-beta.solana.com";
+
+  async function fetchTokenSupply(addr) {
+    try {
+      const r = await fetchWithTimeout(SOL_RPC_URL, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getTokenSupply", params: [addr] }),
+      }, 9000);
+      if (!r.ok) return null;
+      const json = await r.json();
+      const ui = json?.result?.value?.uiAmount;
+      return Number.isFinite(ui) && ui > 0 ? ui : null;
+    } catch { return null; }
+  }
+
+  async function fetchJupiter(addresses) {
+    const result = new Map();
+    if (!addresses.length) return result;
+    for (let i = 0; i < addresses.length; i += 50) {
+      const chunk = addresses.slice(i, i + 50);
+      try {
+        const r = await fetchWithTimeout(`${JUP_PRICE_URL}?ids=${chunk.map(encodeURIComponent).join(",")}`, { cache: "no-store", headers: { Accept: "application/json" } }, 9000);
+        if (!r.ok) continue;
+        const data = await r.json();
+        for (const addr of chunk) {
+          const p = data?.[addr];
+          if (p && Number.isFinite(p.usdPrice) && p.usdPrice > 0) {
+            result.set(addr, {
+              price: p.usdPrice,
+              liquidity: Number.isFinite(p.liquidity) ? p.liquidity : null,
+              change24h: Number.isFinite(p.priceChange24h) ? p.priceChange24h : null,
+            });
+          }
+        }
+      } catch {}
+    }
+    await Promise.all([...result.keys()].map(async addr => {
+      const rec = result.get(addr);
+      if (rec) rec.supply = await fetchTokenSupply(addr);
+    }));
+    return result;
+  }
+
+  function jupToLive(addr, rec) {
+    if (!rec) return null;
+    const price = rec.price ?? null;
+    const mcap = (price != null && rec.supply != null) ? price * rec.supply : null;
+    return {
+      source: "jupiter",
+      price,
+      mcap,
+      liquidity: rec.liquidity ?? null,
+      volume24h: null,
+      change: { "5m": null, "1h": null, "24h": rec.change24h ?? null },
+      pairCreatedAt: null,
+      url: `https://dexscreener.com/solana/${addr}`,
+    };
+  }
+
   function buildRows(messages, liveByContract, tier = cfg.tier) {
     const posts = messages.map(parseBubbaPost).filter(Boolean).filter(p => !tier || p.tier === tier);
     const flat = [];
@@ -343,7 +408,7 @@
 
   function renderStats() {
     const unique = new Set(rows.map(r => r.contract || r.symbol));
-    const live = rows.filter(r => r.live?.source === "dexscreener").length;
+    const live = rows.filter(r => r.live?.source === "dexscreener" || r.live?.source === "jupiter").length;
     const valid = rows.map(r => r.upDown).filter(Number.isFinite);
     const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
     const best = [...rows].filter(r => Number.isFinite(r.upDown)).sort((a, b) => b.upDown - a.upDown)[0];
@@ -548,6 +613,18 @@
       $("status").innerHTML = `// feed rows: <b>${posts.length}</b> scans · contracts: <b>${addresses.length}</b> · loading Dexscreener...`;
       const dexPairs = await fetchDexscreener(addresses);
       const liveByContract = new Map([...dexPairs.entries()].map(([addr, pair]) => [addr, dexToLive(pair)]));
+
+      // Tokens Dexscreener couldn't price (no pair / stub pair) → Jupiter fallback.
+      const missing = addresses.filter(addr => {
+        const pair = dexPairs.get(addr);
+        if (!pair) return true;
+        return (pair.marketCap ?? pair.fdv) == null && pair.priceUsd == null;
+      });
+      if (missing.length) {
+        const jupPairs = await fetchJupiter(missing);
+        for (const [addr, rec] of jupPairs) liveByContract.set(addr, jupToLive(addr, rec));
+      }
+
       liveByContractCache = liveByContract;
       allRows = buildRows(messages, liveByContract, null);
       rows = buildRows(messages, liveByContract, cfg.tier);
