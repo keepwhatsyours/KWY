@@ -547,9 +547,20 @@ function stripPromoLines(content) {
 // These are promotional clutter appended to every signal post.
 function stripIntelPromos(content) {
   if (!content) return content;
-  const lines = content
-    .replace(/[()]*[^()\n]*\bDone on VIP\b[^()\n]*[)!]*/gi, '')
-    .split('\n')
+
+  // Truncate any line that carries a quoted original-call ad tail (common in
+  // "🚀 UPDATE" posts). The token/ticker/mcap/contract all come before the ad
+  // marker, so we cut from the marker to the end of that line only — later
+  // lines (the actual UPDATE body) are preserved.
+  const adStartRe = /(?:🌐\s*WEB\s*\||👥\s*Shill\b|📈\s*(?:MevX|Dexscreener|GMGN|Axiom|Bull\s?X|BullX|Trojan|Maestro|Dexscreener|Padre|Pumpfun|Pump\.fun|DEX|Dex|Bloom|Sniffer|Defined|Gecko))/i;
+  const lines = content.split('\n').map((line) => {
+    const idx = line.search(adStartRe);
+    return idx >= 0 ? line.slice(0, idx) : line;
+  });
+
+  return lines
+    // VIP upsell: "(Nx Done on VIP!...)" / "Done on VIP"
+    .map((line) => line.replace(/[()]*[^()\n]*\bDone on VIP\b[^()\n]*[)!]*/gi, ''))
     .filter((line) => {
       const t = line.trim();
       if (!t) return true;
@@ -557,23 +568,21 @@ function stripIntelPromos(content) {
       const s = t.replace(/^[^\p{L}\p{N}]+/u, '').trim();
       // Referral/tool row: a pipe-separated row where EVERY token is a known
       // trading bot / chart tool name (MevX | Dexscreener | GMGN ...).
-      if (/\|/.test(s) && s.split('|').every(x => /^\s*(?:MevX|GMGN|Birdeye|Photon|Axiom|Bull\s?X|BullX|Trojan|Maestro|Dexscreener|Padre|Pumpfun|Pump\.fun|DEX|Dex|Bloom|Sniffer|Defined|Gecko)\s*$/i.test(x))) return false;
+      if (/\|/.test(s) && s.split('|').every((x) => /^\s*(?:MevX|GMGN|Birdeye|Photon|Axiom|Bull\s?X|BullX|Trojan|Maestro|Dexscreener|Padre|Pumpfun|Pump\.fun|DEX|Dex|Bloom|Sniffer|Defined|Gecko)\s*$/i.test(x))) return false;
       // Social row: only WEB | X | TG | Scan style tokens.
       if (/^[🌐🐦𝕏💬🔎📈✈️\s]*\b(?:WEB|X|TG|Scan|Chart|Discord|Site)\b[\s🌐🐦𝕏💬🔎📈✈️]*(?:\|[🌐🐦𝕏💬🔎📈✈️\s]*\b(?:WEB|X|TG|Scan|Chart|Discord|Site)\b[\s🌐🐦𝕏💬🔎📈✈️]*)+$/i.test(t)) return false;
       // "Shill with your friends" promo line.
       if (/\bShill with your friends\b/i.test(s)) return false;
       return true;
-    });
-
-  // Drop the trailing repeated channel footer line ("SOLANA ALPHA SIGNAL" with
-  // no content) that the channel appends after every post. Only remove when it
-  // is the last non-empty line and the header line above already carries it.
-  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-  if (lines.length > 1 && /^SOLANA ALPHA SIGNAL\b/i.test(lines[lines.length - 1].replace(/^[^\p{L}\p{N}]+/u, '').trim())) {
-    lines.pop();
-  }
-
-  return lines
+    })
+    // Drop the trailing repeated channel footer line ("SOLANA ALPHA SIGNAL" with
+    // no content) that the channel appends after every post. Only remove when it
+    // is the last non-empty line and the header line above already carries it.
+    .filter((_, i, arr) => {
+      if (i !== arr.length - 1) return true;
+      const s = arr[i].replace(/^[^\p{L}\p{N}]+/u, '').trim();
+      return !/^SOLANA ALPHA SIGNAL\b/i.test(s);
+    })
     .join('\n')
     // collapse stray pipe/space artifacts and excess blank lines
     .replace(/[ \t]*\|[ \t]*(\||$)/g, '')
