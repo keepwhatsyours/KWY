@@ -543,11 +543,11 @@ function stripPromoLines(content) {
 //   - "(2.36x Done on VIP!😀)" VIP upsell brag
 //   - "🌐 WEB | 🐦 X | 💬 TG | 🔎 Scan" social-link row
 //   - "📈 MevX | Dexscreener | GMGN ..." referral-link row
+//   - "👥 Shill with your friends" and the trailing repeated "SOLANA ALPHA SIGNAL" footer
 // These are promotional clutter appended to every signal post.
 function stripIntelPromos(content) {
   if (!content) return content;
-  return content
-    // VIP upsell: "(Nx Done on VIP!...)" / "Done on VIP"
+  const lines = content
     .replace(/[()]*[^()\n]*\bDone on VIP\b[^()\n]*[)!]*/gi, '')
     .split('\n')
     .filter((line) => {
@@ -560,8 +560,20 @@ function stripIntelPromos(content) {
       if (/\|/.test(s) && s.split('|').every(x => /^\s*(?:MevX|GMGN|Birdeye|Photon|Axiom|Bull\s?X|BullX|Trojan|Maestro|Dexscreener|Padre|Pumpfun|Pump\.fun|DEX|Dex|Bloom|Sniffer|Defined|Gecko)\s*$/i.test(x))) return false;
       // Social row: only WEB | X | TG | Scan style tokens.
       if (/^[🌐🐦𝕏💬🔎📈✈️\s]*\b(?:WEB|X|TG|Scan|Chart|Discord|Site)\b[\s🌐🐦𝕏💬🔎📈✈️]*(?:\|[🌐🐦𝕏💬🔎📈✈️\s]*\b(?:WEB|X|TG|Scan|Chart|Discord|Site)\b[\s🌐🐦𝕏💬🔎📈✈️]*)+$/i.test(t)) return false;
+      // "Shill with your friends" promo line.
+      if (/\bShill with your friends\b/i.test(s)) return false;
       return true;
-    })
+    });
+
+  // Drop the trailing repeated channel footer line ("SOLANA ALPHA SIGNAL" with
+  // no content) that the channel appends after every post. Only remove when it
+  // is the last non-empty line and the header line above already carries it.
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  if (lines.length > 1 && /^SOLANA ALPHA SIGNAL\b/i.test(lines[lines.length - 1].replace(/^[^\p{L}\p{N}]+/u, '').trim())) {
+    lines.pop();
+  }
+
+  return lines
     .join('\n')
     // collapse stray pipe/space artifacts and excess blank lines
     .replace(/[ \t]*\|[ \t]*(\||$)/g, '')
@@ -600,6 +612,10 @@ function extractMessageLinks(rawHtml, cleanedContent) {
     if (!links[label]) links[label] = url;
   };
   if (rawHtml) {
+    // Referral / ad links we never want to surface as buttons.
+    const isRefLink = (u) =>
+      /[?&]ref=/i.test(u) || /[?&]start=/i.test(u) ||
+      /(?:^|\/\/)(?:www\.)?(?:mevx\.io|gmgn\.ai|bullx|cabal\.io)/i.test(u);
     for (const m of rawHtml.matchAll(/<a[^>]*href="([^"]+)"[^>]*>/gi)) {
       const u = m[1].trim();
       if (!u || u.startsWith('mailto:')) continue;
@@ -608,11 +624,13 @@ function extractMessageLinks(rawHtml, cleanedContent) {
       if (/(?:^|\/\/)(?:www\.)?(?:twitter\.com|x\.com)\//i.test(u)) candidate('twitter', u);
       else if (/(?:^|\/\/)(?:www\.)?t\.me\//i.test(u)) {
         if (/InsideAds/i.test(u)) continue; // skip sponsored ad deeplinks
+        if (/[?&]start=/i.test(u)) continue; // skip bot deeplink referrals (t.me/<Bot>?start=...)
         candidate('telegram', u);
       }
       else if (/dexscreener|gmgn|birdeye|photon-sol|solscan|pump\.fun|dextools/i.test(u)) candidate('chart', u);
       else if (/^https?:\/\//i.test(u) &&
                !/cdn|telegram\.org|telegra\.ph|tdesktop\.com/i.test(u)) {
+        if (isRefLink(u)) continue; // skip website referrals (mevx.io?ref=..., etc.)
         candidate('website', u);
       }
     }
