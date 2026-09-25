@@ -301,6 +301,31 @@ app.get('/gmgn', async (req, res) => {
   }
 });
 
+// ---------- SOL TOKEN SUPPLY PROXY ----------
+// The browser cannot call api.mainnet-beta.solana.com directly (403 / CORS on
+// many origins), so proxy getTokenSupply here. Used by the Jupiter fallback to
+// compute market cap (mcap = jupiter price * token supply).
+// Query: ?address=<contract>  →  { uiAmount }
+const SOL_RPC_URL = process.env.SOL_RPC_URL || 'https://api.mainnet-beta.solana.com';
+app.get('/supply', async (req, res) => {
+  const { address } = req.query;
+  if (!address) return res.status(400).json({ error: 'missing address' });
+  try {
+    const r = await fetch(SOL_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenSupply', params: [address] }),
+    });
+    const data = await r.json();
+    const uiAmount = data?.result?.value?.uiAmount ?? null;
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ uiAmount });
+  } catch (err) {
+    console.warn('[warn] supply proxy error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // ---------- BURPBOARD scraper (Telegram t.me/s/burpboard) ----------
 // Mirrors the latest "Best performing tokens | Last 24H" post into JSON.
 // Cached 5 minutes — Burpboard updates much less frequently than that.

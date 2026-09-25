@@ -281,19 +281,17 @@
      Free, keyless, Solana-native price API. Returns price/liquidity/24h-change
      but NOT market cap — compute mcap from RPC token supply. */
   const JUP_PRICE_URL = "https://api.jup.ag/price/v3";
-  const SOL_RPC_URL = "https://api.mainnet-beta.solana.com";
+  // Browser cannot call api.mainnet-beta.solana.com directly (403/CORS), so the
+  // token-supply lookup goes through our own bot proxy (/supply on the feed host).
+  const SUPPLY_URL = FEED_URL ? FEED_URL.replace(/\/feed$/, "/supply") : "";
 
   async function fetchTokenSupply(addr) {
+    if (!SUPPLY_URL) return null;
     try {
-      const r = await fetchWithTimeout(SOL_RPC_URL, {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getTokenSupply", params: [addr] }),
-      }, 9000);
+      const r = await fetchWithTimeout(`${SUPPLY_URL}?address=${encodeURIComponent(addr)}`, { cache: "no-store" }, 9000);
       if (!r.ok) return null;
       const json = await r.json();
-      const ui = json?.result?.value?.uiAmount;
+      const ui = json?.uiAmount;
       return Number.isFinite(ui) && ui > 0 ? ui : null;
     } catch { return null; }
   }
