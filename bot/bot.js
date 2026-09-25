@@ -539,6 +539,37 @@ function stripPromoLines(content) {
     .trim();
 }
 
+// Remove AlphaSignal channel boilerplate / ads:
+//   - "(2.36x Done on VIP!😀)" VIP upsell brag
+//   - "🌐 WEB | 🐦 X | 💬 TG | 🔎 Scan" social-link row
+//   - "📈 MevX | Dexscreener | GMGN ..." referral-link row
+// These are promotional clutter appended to every signal post.
+function stripIntelPromos(content) {
+  if (!content) return content;
+  return content
+    // VIP upsell: "(Nx Done on VIP!...)" / "Done on VIP"
+    .replace(/[()]*[^()\n]*\bDone on VIP\b[^()\n]*[)!]*/gi, '')
+    .split('\n')
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return true;
+      // Normalize: drop a leading emoji/icon so we can test the text tokens.
+      const s = t.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+      // Referral/tool row: a pipe-separated row where EVERY token is a known
+      // trading bot / chart tool name (MevX | Dexscreener | GMGN ...).
+      if (/\|/.test(s) && s.split('|').every(x => /^\s*(?:MevX|GMGN|Birdeye|Photon|Axiom|Bull\s?X|BullX|Trojan|Maestro|Dexscreener|Padre|Pumpfun|Pump\.fun|DEX|Dex|Bloom|Sniffer|Defined|Gecko)\s*$/i.test(x))) return false;
+      // Social row: only WEB | X | TG | Scan style tokens.
+      if (/^[🌐🐦𝕏💬🔎📈✈️\s]*\b(?:WEB|X|TG|Scan|Chart|Discord|Site)\b[\s🌐🐦𝕏💬🔎📈✈️]*(?:\|[🌐🐦𝕏💬🔎📈✈️\s]*\b(?:WEB|X|TG|Scan|Chart|Discord|Site)\b[\s🌐🐦𝕏💬🔎📈✈️]*)+$/i.test(t)) return false;
+      return true;
+    })
+    .join('\n')
+    // collapse stray pipe/space artifacts and excess blank lines
+    .replace(/[ \t]*\|[ \t]*(\||$)/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 // Strip social link labels that survive as plain text after tgHtmlToText removes
 // the <a> tags (e.g., "✅/Chart:", "💬/Twitter:", "🌐/Website:", "✈️/Telegram:").
 // These are redundant because the same links are rendered as pill buttons.
@@ -656,7 +687,7 @@ async function fetchTelegramChannel(slug, max = 30) {
     const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
     const rawHtml = textMatch ? textMatch[1] : '';
     const content = textMatch
-      ? linkifyGmgnChart(stripSocialLabels(stripPromoLines(tgHtmlToText(rawHtml).trim())))
+      ? linkifyGmgnChart(stripIntelPromos(stripSocialLabels(stripPromoLines(tgHtmlToText(rawHtml).trim()))))
       : '';
     const links = extractMessageLinks(rawHtml, content);
 
