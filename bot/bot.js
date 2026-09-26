@@ -575,17 +575,26 @@ function stripIntelPromos(content) {
       if (/\bShill with your friends\b/i.test(s)) return false;
       return true;
     })
-    // Drop the trailing repeated channel footer line ("SOLANA ALPHA SIGNAL" with
-    // no content) that the channel appends after every post. Only remove when it
-    // is the last non-empty line and the header line above already carries it.
-    .filter((_, i, arr) => {
-      if (i !== arr.length - 1) return true;
-      const s = arr[i].replace(/^[^\p{L}\p{N}]+/u, '').trim();
-      return !/^SOLANA ALPHA SIGNAL\b/i.test(s);
-    })
     .join('\n')
     // collapse stray pipe/space artifacts and excess blank lines
     .replace(/[ \t]*\|[ \t]*(\||$)/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+// Normalize AlphaSignal post layout: remove the repeated channel header and
+// put each field (Token, Ticker, Market Cap, Now, Contract, UPDATE) on its own
+// line so the INTEL FEED renders cleanly.
+function formatIntelPost(content) {
+  if (!content) return content;
+  return content
+    // Drop the repeated "SOLANA ALPHA SIGNAL | #SOLANA" header.
+    .replace(/^\s*SOLANA ALPHA SIGNAL\s*\|\s*#SOLANA\s*/gim, '')
+    // Put each labeled field on its own line when they're crammed together.
+    // The lookahead matches the full emoji+label marker so the emoji stays with
+    // its text instead of being split onto a separate line.
+    .replace(/\s*(?=✅\s*Token:|📍\s*Ticker:|🏦\s*Market Cap:|➡️\s*Now:|🏷\s*Contract:|🚀\s*UPDATE|💸\s|🏦\s*MCap)/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
@@ -716,7 +725,7 @@ async function fetchTelegramChannel(slug, max = 30) {
     const textMatch = inner.match(/<div\s+class="[^"]*\btgme_widget_message_text\b[^"]*"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div\s+class="[^"]*tgme_widget_message_(?:footer|reactions|reply|service_message|metadata)|<\/div>\s*<\/div>))/);
     const rawHtml = textMatch ? textMatch[1] : '';
     const content = textMatch
-      ? linkifyGmgnChart(stripIntelPromos(stripSocialLabels(stripPromoLines(tgHtmlToText(rawHtml).trim()))))
+      ? linkifyGmgnChart(formatIntelPost(stripIntelPromos(stripSocialLabels(stripPromoLines(tgHtmlToText(rawHtml).trim())))))
       : '';
     const links = extractMessageLinks(rawHtml, content);
 
