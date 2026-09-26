@@ -595,6 +595,8 @@ function formatIntelPost(content) {
     // The lookahead matches the full emoji+label marker so the emoji stays with
     // its text instead of being split onto a separate line.
     .replace(/\s*(?=✅\s*Token:|📍\s*Ticker:|🏦\s*Market Cap:|➡️\s*Now:|🏷\s*Contract:|🚀\s*UPDATE|💸\s|🏦\s*MCap)/g, '\n')
+    // Strip the repeated "SOLANA ALPHA SIGNAL" footer that survives at the end.
+    .replace(/\n*\s*SOLANA ALPHA SIGNAL\b[\s\S]*$/i, '')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
@@ -804,6 +806,15 @@ function isJunkPost(content) {
   // Channel cross-promotion spam
   if (/\bJoin our other channel\b/i.test(t)) return true;
   if (/^\s*@[A-Za-z0-9_]+(?:\s*@[A-Za-z0-9_]+)*\s*$/i.test(t)) return true;
+
+  // VIP / flash-sale ad-only posts (no token signal content)
+  if (/\bFLASH SALE\b/i.test(t)) return true;
+  if (/\bVIP\s+(?:Lifetime\s+)?Access\b/i.test(t)) return true;
+  if (/\bDM\s+@\w+\s+to\s+join\b/i.test(t)) return true;
+  if (/\bpinned\s+«[^»]*(?:FLASH SALE|VIP)/i.test(t)) return true;
+
+  // Drop posts that contain no actual signal data (no Contract: and no UPDATE $)
+  if (!/\bContract:\s*\S/.test(t) && !/🚀\s*UPDATE\s+\$/.test(t)) return true;
 
   // Telegram-restricted placeholder
   if (/^please open telegram/i.test(t)) return true;
