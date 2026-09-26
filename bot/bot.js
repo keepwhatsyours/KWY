@@ -856,12 +856,19 @@ async function fetchIntel() {
   });
   // Sort newest first by timestamp (ISO strings sort lexicographically).
   all.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  // Dedupe by id in case any channel cross-posts.
-  const seen = new Set();
+  // Dedupe by id in case any channel cross-posts, then by ticker so the feed
+  // doesn't show multiple UPDATE messages for the same token.
+  const seenIds = new Set();
+  const seenTickers = new Set();
   const messages = [];
   for (const m of all) {
-    if (m.id && seen.has(m.id)) continue;
-    if (m.id) seen.add(m.id);
+    if (m.id && seenIds.has(m.id)) continue;
+    if (m.id) seenIds.add(m.id);
+    const ticker = (m.content.match(/📍\s*Ticker:\s*(\S+)/) || [])[1];
+    if (ticker) {
+      if (seenTickers.has(ticker)) continue;
+      seenTickers.add(ticker);
+    }
     messages.push(m);
     if (messages.length >= INTEL_TOTAL) break;
   }
