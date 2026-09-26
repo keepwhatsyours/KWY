@@ -792,6 +792,10 @@ function isJunkPost(content) {
   if (/start and claim/i.test(t)) return true;
   if (/no conditions\.?\s*no deposit/i.test(t)) return true;
 
+  // Channel cross-promotion spam
+  if (/\bJoin our other channel\b/i.test(t)) return true;
+  if (/^\s*@[A-Za-z0-9_]+(?:\s*@[A-Za-z0-9_]+)*\s*$/i.test(t)) return true;
+
   // Telegram-restricted placeholder
   if (/^please open telegram/i.test(t)) return true;
 
