@@ -597,7 +597,8 @@ function formatIntelPost(content) {
     .replace(/\s*(?=✅\s*Token:|📍\s*Ticker:|🏦\s*Market Cap:|➡️\s*Now:|🏷\s*Contract:|🚀\s*UPDATE|💸\s|🏦\s*MCap)/g, '\n')
     // Strip the repeated "SOLANA ALPHA SIGNAL" footer that survives at the end.
     .replace(/\n*\s*SOLANA ALPHA SIGNAL\b[\s\S]*$/i, '')
-    .replace(/\n{3,}/g, '\n\n')
+    // Collapse multiple blank lines into a single newline so fields are tight.
+    .replace(/\n{2,}/g, '\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
 }
