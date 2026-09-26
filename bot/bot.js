@@ -604,7 +604,7 @@ function formatIntelPost(content) {
     // If the post contains an UPDATE marker, move it (and the gain line) to
     // the top so returning tokens are immediately obvious. Add a blank line
     // between the update header and the body below it.
-    .replace(/^(?![\s\S]*?🚀\s*UPDATE)([\s\S]*?)(🚀\s*UPDATE\s*.*\n💸\s*[^\n]*)(\n[\s\S]*)?$/i, '$2\n\n$1$3')
+    .replace(/^([\s\S]*?)(🚀\s*UPDATE\s*.*\n💸\s*[^\n]*)(\n[\s\S]*)?$/i, '$2\n\n$1$3')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
