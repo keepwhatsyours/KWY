@@ -600,6 +600,11 @@ function formatIntelPost(content) {
     // Collapse multiple blank lines into a single newline so fields are tight.
     .replace(/\n{2,}/g, '\n')
     .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+    // If the post contains an UPDATE marker, move it (and the gain line) to
+    // the top so returning tokens are immediately obvious.
+    .replace(/^(?![\s\S]*?🚀\s*UPDATE)([\s\S]*?)(🚀\s*UPDATE\s*.*\n💸\s*[^\n]*)(\n[\s\S]*)?$/i, '$2\n$1$3')
+    .replace(/\n{2,}/g, '\n')
     .trim();
 }
 
