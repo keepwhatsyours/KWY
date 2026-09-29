@@ -601,11 +601,15 @@ function formatIntelPost(content) {
     .replace(/\n{2,}/g, '\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim()
-    // If the post contains an UPDATE marker, move the update header block
-    // (UPDATE line + gain line + MCap summary line) to the top so returning
-    // tokens are immediately obvious. Keep the header block tight, then a blank
-    // line, then the body fields.
-    .replace(/^([\s\S]*?)(🚀\s*UPDATE\s*.*\n💸\s*[^\n]*\n🏦\s*MCap\s*[^\n]*)(\n[\s\S]*)?$/i, '$2\n\n$1$3')
+    // If the post contains an UPDATE marker, build a tight header block from
+    // the UPDATE line, the gain line, and the MCap summary line ( wherever it
+    // appears ), then place the body fields below a single blank line.
+    .replace(/^([\s\S]*?)(🚀\s*UPDATE\s*.*\n💸\s*[^\n]*)([\s\S]*)$/i, (_match, before, header, rest) => {
+      const mcap = rest.match(/\n?🏦\s*MCap\s*[^\n]*/);
+      const mcapLine = mcap ? mcap[0].replace(/^\n/, '') : '';
+      const body = rest.replace(/\n?🏦\s*MCap\s*[^\n]*\n?/g, '\n').replace(/\n{2,}/g, '\n').trim();
+      return `${header}${mcapLine ? '\n' + mcapLine : ''}\n\n${body}`;
+    })
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
